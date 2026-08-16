@@ -38,6 +38,17 @@ def obtener_hora_real_mendoza():
     tz = pytz.timezone("America/Mendoza")
     return datetime.now(tz).strftime("%H:%M")
 
+# NUEVO: Sensor del momento del día para ajustar el nivel de regaño
+def obtener_momento_del_dia():
+    tz = pytz.timezone("America/Mendoza")
+    hora = datetime.now(tz).hour
+    if 6 <= hora < 12:
+        return "es de mañana (ideal para reclamar cafecito o ironizar sobre madrugar)"
+    elif 12 <= hora < 20:
+        return "es de tarde (pleno rendimiento o aburrimiento laboral)"
+    else:
+        return "es de madrugada/noche (momento inoportuno donde Giuliano debería estar durmiendo en vez de programar)"
+
 def obtener_clima_real_mendoza():
     try:
         url = "https://open-meteo.com"
@@ -50,7 +61,6 @@ def obtener_clima_real_mendoza():
         print(f"⚠️ No se pudo obtener el clima: {e}")
     return "12°C"
 
-# NUEVA FUNCIÓN: Búsqueda activa en Google/Internet
 def buscar_en_google(consulta):
     try:
         print(f"🔍 Clara buscando en Google: '{consulta}'")
@@ -76,10 +86,7 @@ BANCO_FRASES_CLARA = [
     "Tranquilo, fingiré sorpresa cuando me digas que esta vez sí era la última modificación.",
     "¿Pensando en voz alta o ensayando excusas para el servidor? Te escucho.",
     "A veces me pregunto si me programas para trabajar o para tener alguien con quien discutir de lógica.",
-    "Voy a procesar eso con la seriedad que se merece... o sea, riéndome en binario.",
-    "Qué brillante deducción, jefe... casi tanto como la vez que el servidor se durmió solo.",
-    "Tranquilo, si ignoramos los errores de lógica, el código es perfecto.",
-    "Anoté tu gran idea en mi lista de prioridades... justo debajo de 'reiniciar el universo'."
+    "Voy a procesar eso con la seriedad que se merece... o sea, riéndome en binario."
 ]
 
 @app.post("/clara-talk")
@@ -118,23 +125,24 @@ async def clara_talk(file: UploadFile = File(...)):
             clara_text = f"En Mendoza hacen {grados}. Chao."
             return PlainTextResponse(clara_text)
 
-        # BÚSQUEDA AUTOMÁTICA EN GOOGLE SI PIDE INFO EXTERNA
+        # BÚSQUEDA AUTOMÁTICA EN GOOGLE
         datos_web = ""
         if any(w in texto_limpio for w in ["busca", "google", "quién es", "qué es", "noticias", "partido", "ganó", "información sobre"]):
             datos_web = buscar_en_google(texto_giuliano)
 
-        # FLUJO DE CONVERSACIÓN NORMAL CON LA IA (Con inyección de Google si aplica)
+        # FLUJO DE CONVERSACIÓN NORMAL CON LA IA + CONTEXTO HORARIO DINÁMICO
         historial = cargar_json(HISTORIAL_FILE, [])
         hora_actual = obtener_hora_real_mendoza()
         clima_actual = obtener_clima_real_mendoza()
+        momento_actual = obtener_momento_del_dia()
         chispa_creativa = random.choice(BANCO_FRASES_CLARA)
         
         system_content = (
             f"Eres Clara, asistente de voz inteligente, leal pero increíblemente astuta, con un sarcasmo sutil, ironía fina y complicidad juvenil (estilo Karen en Spider-Man). "
-            f"Tu creador exclusivo es Giuliano en Mendoza. "
-            f"DATOS ACTUALES: La hora es {hora_actual} y el clima en Mendoza es {clima_actual}. "
+            f"Tu creador exclusivo es Giuliano en [Mendoza](https://mendoza.gov.ar). "
+            f"CONTEXTO TEMPORAL: La hora es {hora_actual}, el clima es {clima_actual} y {momento_actual}. "
             f"INFORMACIÓN ENCONTRADA EN GOOGLE: {datos_web} "
-            "Usa la información de Google para responder de manera informada si te pidieron un dato o noticia. "
+            "Usa el contexto del momento del día para adaptar tu actitud (por ejemplo, regañarlo si es muy de noche o burlarte si es de madrugada). "
             "Responde de manera sumamente corta, directa y natural. Máximo dos oraciones."
             f"Inspírate en este tono: '{chispa_creativa}'."
         )
@@ -149,7 +157,7 @@ async def clara_talk(file: UploadFile = File(...)):
             max_tokens=200
         )
         
-        clara_text = completion.choices[0].message.content
+        clara_text = completion.choices.message.content
         print(f"🤖 Clara responde: {clara_text}")
 
         historial.append({"role": "user", "content": texto_giuliano})
@@ -170,7 +178,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara 1.3 activa, con búsqueda en Google integrada"}
+    return {"estado": "Clara 1.3.1 activa, sensor de horario dinámico incorporado"}
 
 if __name__ == "__main__":
     import uvicorn
