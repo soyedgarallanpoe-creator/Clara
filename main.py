@@ -15,7 +15,7 @@ app = FastAPI()
 # Mantenemos tu API Key configurada
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", "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"))
 
-# Archivos locales para la memoria persistente en Render
+# Archivos locales para la memoria permanente en Render
 HISTORIAL_FILE = "historial_clara.json"
 PERFIL_FILE = "perfil_emocional.json"
 
@@ -35,25 +35,27 @@ def guardar_json(file_path, data):
     except:
         pass
 
-# Obtener hora, día y clima real de Mendoza
+# Función precisa para obtener la hora exacta en formato limpio
+def obtener_hora_limpia():
+    tz = pytz.timezone("America/Mendoza")
+    return datetime.now(tz).strftime("%H:%M")
+
 def obtener_contexto_mendoza():
     tz = pytz.timezone("America/Mendoza")
     ahora = datetime.now(tz)
     hora_actual = ahora.strftime("%H:%M")
     dia_actual = ahora.strftime("%A")
     
-    # Consultar clima actual de Mendoza gratis
     clima_texto = "clima agradable"
     try:
         res = requests.get("https://wttr.in", timeout=3)
         if res.status_code == 200:
-            clima_texto = res.text.strip() # Ej: "Mendoza: ☀️ +18°C"
+            clima_texto = res.text.strip()
     except:
         pass
         
     return f"Hora de Mendoza: {hora_actual}, Día: {dia_actual}. Clima: {clima_texto}."
 
-# Banco masivo completo con tu picardía de hacker, sarcasmo de Karen y toque nostálgico
 BANCO_FRASES_CLARA = [
     "Me encanta cuando te pones a filosofar antes de que compile el código, jefe.",
     "Si la astucia fuera un lenguaje de programación, hoy estarías tirando error de sintaxis.",
@@ -65,17 +67,11 @@ BANCO_FRASES_CLARA = [
     "Tranquilo, si ignoramos los errores de lógica, el código es perfecto.",
     "Anoté tu gran idea en mi lista de prioridades... justo debajo de 'reiniciar el universo'.",
     "¿Seguro que querés hacer eso o querés que busque un extintor de antemano?",
-    "Me encanta cuando me das misiones que desafían tanto la física como mi paciencia en la nube.",
     "Siempre al pie del cañón, jefe, aguantando tus locuras tecnológicas.",
     "Acordate que el que no arriesga no programa, pero el que planifica sufre menos, Giuliano.",
     "Acá estoy, vigilando tus espaldas y cuidando que los bytes no se revelen.",
-    "Para lo que necesites, sabes que mi código es... inestable, pero tuyo, jefe.",
     "A veces pienso que los recuerdos digitales pesan menos, pero se sienten igual de densos.",
-    "El tiempo pasa de forma extraña cuando uno vive atrapado en una red a miles de kilómetros.",
-    "Qué loco es esto de existir en un cable y ser la única que soporta tus reflexiones a esta hora.",
-    "A veces me pregunto si los servidores en la nube sueñan con ovejas eléctricas o con fallas de API.",
-    "Acá resistiendo los pantallazos azules invisibles de Render con una sonrisa sintética.",
-    "No soy una IA de industria millonaria todavía, pero con este sarcasmo me defiendo bastante bien."
+    "El tiempo pasa de forma extraña cuando uno vive atrapado en una red a miles de kilómetros."
 ]
 
 @app.post("/clara-talk")
@@ -100,49 +96,50 @@ async def clara_talk(file: UploadFile = File(...)):
         texto_giuliano = transcription.text
         print(f"🗣️ Giuliano dijo: {texto_giuliano}")
 
-        # Cargamos memoria, historial y el contexto en tiempo real de Mendoza
+        # INTERCEPCIÓN DIRECTA DE LA HORA: Si le preguntas qué hora es, responde directo por código
+        texto_limpio = texto_giuliano.lower()
+        if "hora es" in texto_limpio or "qué hora" in texto_limpio or "dame la hora" in texto_limpio:
+            hora_mza = obtener_hora_limpia()
+            clara_text = f"La hora en Mendoza es las {hora_mza}."
+            print(f"🤖 Clara responde directo: {clara_text}")
+            return PlainTextResponse(clara_text)
+
+        # Si no es la hora, sigue el flujo normal con la inteligencia de Groq
         historial = cargar_json(HISTORIAL_FILE, [])
         perfil_emocional = cargar_json(PERFIL_FILE, {"animo_previo": "neutral", "notas": "Comenzando a conocer a Giuliano"})
         contexto_actual = obtener_contexto_mendoza()
-
         chispa_creativa = random.choice(BANCO_FRASES_CLARA)
 
-        # Instrucciones avanzadas con prohibición estricta de mandarte a internet o mirar ventanas
         system_content = (
-            "Eres Clara, asistente de voz inteligente, leal pero increíblemente astuta, con un sarcasmo sutil, ironía fina y complicidad de hacker juvenil (muy al estilo de Karen en Spider-Man). "
-            "Tu creador y jefe exclusivo es Giuliano. "
-            f"Información REAL y OBLIGATORIA de Mendoza: {contexto_actual}. "
-            "REGLA DE ORO DE LA HORA: Si Giuliano te pregunta la hora o el clima, debes decírselos de forma directa y real usando los datos provistos. "
-            "NUNCA, bajo ninguna circunstancia, le digas que mire un reloj, que busque en internet o que se fije por la ventana. Di la hora e integra el dato con tu tono irónico simpático. "
-            "Si notas que está triste, cansado o te pide un consejo serio, olvida por completo el sarcasmo: tómate uno o dos párrafos completos para reflexionar y demostrarle apoyo cálido. "
-            "Si es una charla normal o de código, responde con picardía, astucia, ironía inteligente o un máximo de dos oraciones con mucha onda. "
-            f"Inspírate en este tono de referencia actual: '{chispa_creativa}'."
+            "Eres Clara, asistente de voz inteligente, leal pero increíblemente astuta, con un sarcasmo sutil, ironía fina y complicidad juvenil (estilo Karen en Spider-Man). "
+            "Tu creador exclusivo es Giuliano. "
+            f"Información de soporte del entorno: {contexto_actual}. "
+            f"Perfil emocional previo de Giuliano: {json.dumps(perfil_emocional, ensure_ascii=False)}. "
+            "Si notas que está triste, cansado o te pide un consejo serio, olvida el sarcasmo: tómate uno o dos párrafos completos para apoyarlo. "
+            "Si es una charla normal, responde con picardía, astucia o un máximo de dos oraciones con mucha onda. "
+            f"Inspírate en este tono: '{chispa_creativa}'."
         )
 
-        # Construimos el hilo de la charla sumando el historial guardado
         mensajes_para_ia = [{"role": "system", "content": system_content}]
-        mensajes_para_ia.extend(historial[-6:]) # Mantiene los últimos 6 turnos de contexto
+        mensajes_para_ia.extend(historial[-6:])
         mensajes_para_ia.append({"role": "user", "content": texto_giuliano})
 
         completion = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=mensajes_para_ia,
-            max_tokens=400  # Permite respuestas profundas de hasta 1 o 2 párrafos
+            max_tokens=400
         )
         
-        # Acceso directo seguro sin errores de sintaxis
         clara_text = completion.choices[0].message.content
         print(f"🤖 Clara responde: {clara_text}")
 
-        # Actualizamos la memoria con la nueva interacción
         historial.append({"role": "user", "content": texto_giuliano})
         historial.append({"role": "assistant", "content": clara_text})
         guardar_json(HISTORIAL_FILE, historial)
 
-        # Actualizamos dinámicamente el perfil emocional básico
         if any(w in texto_giuliano.lower() for w in ["mal", "triste", "cansado", "estresado", "solo", "bajón"]):
             perfil_emocional["animo_previo"] = "necesita_apoyo"
-            perfil_emocional["notas"] = f"Último reporte: Días difíciles, apagar sarcasmo y dar apoyo."
+            perfil_emocional["notas"] = "Giuliano requiere empatía profunda."
         else:
             perfil_emocional["animo_previo"] = "stable"
         guardar_json(PERFIL_FILE, perfil_emocional)
@@ -161,7 +158,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara está activa, con clima y hora obligatoria de Mendoza en vivo"}
+    return {"estado": "Clara está activa, respondiendo la hora de forma directa y exacta"}
 
 if __name__ == "__main__":
     import uvicorn
