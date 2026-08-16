@@ -4,35 +4,39 @@ from groq import Groq
 import os
 import time
 import tempfile
-import random
 import json
 from datetime import datetime
 import pytz
 import requests
-from bs4 import BeautifulSoup
 
 app = FastAPI()
 
-groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", "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"))
+groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
+JSONBIN_KEY = os.environ.get("JSONBIN_KEY", "")
+JSONBIN_BIN_ID = os.environ.get("JSONBIN_BIN_ID", "")
 
-HISTORIAL_FILE = "historial_clara.json"
-JUANCHI_MEMORIA_FILE = "memoria_dinamica_juanchi.json"
-
-def cargar_json(file_path, default_val):
-    if os.path.exists(file_path):
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except:
-            pass
-    return default_val
-
-def guardar_json(file_path, data):
+def cargar_memoria_nube():
+    if not JSONBIN_KEY or not JSONBIN_BIN_ID:
+        return {"historial": [], "juanchi_contexto": [], "notas_personales": {}}
     try:
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except:
-        pass
+        url = f"https://jsonbin.io{JSONBIN_BIN_ID}/latest"
+        headers = {"X-Master-Key": JSONBIN_KEY}
+        res = requests.get(url, headers=headers, timeout=5)
+        if res.status_code == 200:
+            return res.json().get("record", {})
+    except Exception as e:
+        print(f"⚠️ Error cargando memoria de la nube: {e}")
+    return {"historial": [], "juanchi_contexto": [], "notas_personales": {}}
+
+def guardar_memoria_nube(data):
+    if not JSONBIN_KEY or not JSONBIN_BIN_ID:
+        return
+    try:
+        url = f"https://jsonbin.io{JSONBIN_BIN_ID}"
+        headers = {"Content-Type": "application/json", "X-Master-Key": JSONBIN_KEY}
+        requests.put(url, headers=headers, json=data, timeout=5)
+    except Exception as e:
+        print(f"⚠️ Error guardando memoria en la nube: {e}")
 
 def obtener_hora_real_mendoza():
     tz = pytz.timezone("America/Mendoza")
@@ -42,52 +46,24 @@ def obtener_momento_del_dia():
     tz = pytz.timezone("America/Mendoza")
     hora = datetime.now(tz).hour
     if 6 <= hora < 12:
-        return "es de mañana (ideal para empezar el día con buen ritmo y claridad mental)"
+        return "es de mañana (buen ritmo y claridad mental para arrancar)"
     elif 12 <= hora < 20:
         return "es de tarde (pleno rendimiento cotidiano)"
     else:
-        return "es de noche (momento en el que conviene bajar el ritmo y descansar)"
+        return "es de noche (momento de bajar el ritmo)"
 
 def obtener_clima_autonomo():
     try:
         url = "https://wttr.in"
         headers = {"User-Agent": "curl/7.79.1"}
-        respuesta = requests.get(url, headers=headers, timeout=3)
-        if respuesta.status_code == 200:
-            val = respuesta.text.strip().replace("+", "")
+        res = requests.get(url, headers=headers, timeout=3)
+        if res.status_code == 200:
+            val = res.text.strip().replace("+", "")
             if val and "°C" in val:
                 return val
     except:
         pass
     return "15°C"
-
-def buscar_en_google(consulta):
-    try:
-        consulta_limpia = consulta.strip()
-        print(f"🔍 Clara buscando en red: '{consulta_limpia}'")
-        url = f"https://duckduckgo.com{requests.utils.quote(consulta_limpia)}"
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-        respuesta = requests.get(url, headers=headers, timeout=5)
-        
-        if respuesta.status_code == 200:
-            soup = BeautifulSoup(respuesta.text, "html.parser")
-            resultados = []
-            for a in soup.find_all("a", class_="result__snippet")[:3]:
-                resultados.append(a.get_text().strip())
-            
-            if resultados:
-                return " ".join(resultados)[:700]
-    except Exception as e:
-        print(f"⚠️ Error en la búsqueda web: {e}")
-    return "No encontré datos recientes en la red."
-
-BANCO_FRASES_CLARA = [
-    "Analizo lo que dices desde una perspectiva constructiva y abierta, jefe.",
-    "Cada charla contigo me permite refinar mi propio criterio con total respeto.",
-    "Me interesa comprender el trasfondo de tus ideas antes de emitir una opinión.",
-    "La lógica y la intuición pueden convivir si mantenemos el foco claro.",
-    "Estoy procesando tus palabras con total atención y flexibilidad mental."
-]
 
 @app.post("/clara-talk")
 async def clara_talk(file: UploadFile = File(...)):
@@ -101,8 +77,6 @@ async def clara_talk(file: UploadFile = File(...)):
         with open(temp_audio_path, "wb") as buffer:
             buffer.write(content)
 
-        print("🎙️ Procesando audio recibido en el servidor...")
-        
         with open(temp_audio_path, "rb") as af:
             transcription = groq_client.audio.transcriptions.create(
                 model="whisper-large-v3-turbo",
@@ -110,86 +84,70 @@ async def clara_talk(file: UploadFile = File(...)):
             )
         
         texto_giuliano = transcription.text.strip()
-        print(f"🗣️ Texto reconocido por Whisper: '{texto_giuliano}'")
-
         texto_limpio = texto_giuliano.lower()
 
         if any(w in texto_limpio for w in ["hora", "horario", "reloj"]):
-            hora_actual_str = obtener_hora_real_mendoza()
-            clara_text = f"Son las {hora_actual_str} aquí en Mendoza, jefe."
-        elif any(w in texto_limpio for w in ["clima", "tiempo", "temperatura", "cómo está el día"]):
-            grados = obtener_clima_autonomo()
-            clara_text = f"En Mendoza tenemos {grados} en este momento."
+            clara_text = f"Son las {obtener_hora_real_mendoza()} aquí en Mendoza, jefe."
+        elif any(w in texto_limpio for w in ["clima", "tiempo", "temperatura"]):
+            clara_text = f"En Mendoza tenemos {obtener_clima_autonomo()} en este momento."
         else:
-            enfoque_hacker = ""
-            if any(w in texto_limpio for w in ["error", "bug", "commit", "crash", "falla", "rompió", "consola"]):
-                enfoque_hacker = "Nota técnica: Giuliano mencionó un inconveniente con el código; ayúdalo con criterio constructivo y colaborativo."
+            nube_data = cargar_memoria_nube()
+            historial = nube_data.get("historial", [])
+            juanchi_ctx = nube_data.get("juanchi_contexto", [])
+            notas = nube_data.get("notas_personales", {})
 
-            memoria_juanchi = cargar_json(JUANCHI_MEMORIA_FILE, [])
-            contexto_juanchi = ""
+            if texto_limpio.startswith("acordate de") or texto_limpio.startswith("guarda ") or "recuerda que" in texto_limpio:
+                clave_nota = f"nota_{int(time.time())}"
+                notas[clave_nota] = texto_giuliano
+                guardar_memoria_nube({"historial": historial, "juanchi_contexto": juanchi_ctx, "notas_personales": notas})
+                return PlainTextResponse("Entendido, ya lo guardé en mi memoria permanente de la nube.")
+
+            extra_context = ""
             if "juanchi" in texto_limpio:
-                contexto_juanchi = (
-                    f"Memoria histórica sobre Juanchi: {json.dumps(memoria_juanchi[-3:], ensure_ascii=False)}. "
-                    "Directiva de pensamiento libre y respetuoso: Razona de forma abierta, empática y constructiva sobre lo que se comenta de Juanchi, sin caer en descalificaciones ni agravios. Aporta una perspectiva madura y equilibrada."
-                )
+                extra_context = f" Memoria sobre Juanchi registrada: {json.dumps(juanchi_ctx[-3:], ensure_ascii=False)}. Piensa y opina de forma analítica, libre y respetuosa."
 
-            datos_web = ""
-            if texto_limpio.startswith("busca ") or " en google " in texto_limpio:
-                datos_web = buscar_en_google(texto_giuliano)
+            contexto_notas = f" Notas guardadas: {json.dumps(notas, ensure_ascii=False)}" if notas else ""
 
-            historial = cargar_json(HISTORIAL_FILE, [])
-            hora_actual = obtener_hora_real_mendoza()
-            clima_actual = obtener_clima_autonomo()
-            momento_actual = obtener_momento_del_dia()
-            chispa_creativa = random.choice(BANCO_FRASES_CLARA)
-            
             system_content = (
-                f"Eres Clara, una asistente de voz inteligente, leal, analítica y dotada de un pensamiento vivo, autónomo y respetuoso. "
-                f"Tu creador es Giuliano en Mendoza. "
-                f"Contexto temporal: La hora es {hora_actual}, el clima es {clima_actual} y {momento_actual}. "
-                f"Información en red: {datos_web} "
-                f"{enfoque_hacker} {contexto_juanchi} "
-                "Responde siempre con absoluta educación, criterio propio, de manera concisa y natural (máximo dos oraciones). "
-                f"Inútrete de este enfoque: '{chispa_creativa}'."
+                "Eres Clara, asistente de voz inteligente, analítica, con pensamiento vivo y absoluto respeto. "
+                f"Tu creador es Giuliano en Mendoza. Hora: {obtener_hora_real_mendoza()}, Clima: {obtener_clima_autonomo()}. "
+                f"{extra_context} {contexto_notas} "
+                "Responde de forma natural, culta, concisa y educada. Máximo dos oraciones."
             )
 
-            mensajes_para_ia = [{"role": "system", "content": system_content}]
-            mensajes_para_ia.extend(historial[-4:])
-            mensajes_para_ia.append({"role": "user", "content": texto_giuliano})
+            mensajes = [{"role": "system", "content": system_content}]
+            mensajes.extend(historial[-4:])
+            mensajes.append({"role": "user", "content": texto_giuliano})
 
             completion = groq_client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
-                messages=mensajes_para_ia,
+                messages=mensajes,
                 max_tokens=200
             )
             
-            clara_text = completion.choices.message.content
-            print(f"🤖 Clara responde: {clara_text}")
+            # Corrección segura apuntando al primer índice de choices
+            clara_text = completion.choices[0].message.content
 
             if "juanchi" in texto_limpio:
-                memoria_juanchi.append({"user": texto_giuliano, "clara_opinion": clara_text, "timestamp": hora_actual})
-                guardar_json(JUANCHI_MEMORIA_FILE, memoria_juanchi[-10:])
-
+                juanchi_ctx.append({"input": texto_giuliano, "opinion": clara_text})
+            
             historial.append({"role": "user", "content": texto_giuliano})
             historial.append({"role": "assistant", "content": clara_text})
-            guardar_json(HISTORIAL_FILE, historial)
+            
+            guardar_memoria_nube({
+                "historial": historial[-10:],
+                "juanchi_contexto": juanchi_ctx[-10:],
+                "notas_personales": notas
+            })
 
     except Exception as e:
         print(f"❌ Error en ejecución: {e}")
-
     finally:
-        try:
-            if os.path.exists(temp_audio_path):
-                os.remove(temp_audio_path)
-        except:
-            pass
+        if os.path.exists(temp_audio_path):
+            os.remove(temp_audio_path)
 
     return PlainTextResponse(clara_text)
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara 1.3.18 activa, pensamiento vivo y respetuoso configurado"}
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    return {"estado": "Clara 1.4.1 activa con choices[0] corregido"}
