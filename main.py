@@ -1,10 +1,10 @@
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import PlainTextResponse
 from groq import Groq
+from upstash_redis import Redis
 import os
 import time
 import tempfile
-import random
 import json
 from datetime import datetime
 import pytz
@@ -13,26 +13,36 @@ from bs4 import BeautifulSoup
 
 app = FastAPI()
 
-groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", "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"))
+# Inicialización del cliente de Groq
+groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-HISTORIAL_FILE = "historial_clara.json"
-JUANCHI_MEMORIA_FILE = "memoria_dinamica_juanchi.json"
+# Conexión a la nube de Upstash Redis
+redis = Redis(
+    url=os.environ.get("UPSTASH_REDIS_REST_URL"),
+    token=os.environ.get("UPSTASH_REDIS_REST_TOKEN")
+)
 
-def cargar_json(file_path, default_val):
-    if os.path.exists(file_path):
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except:
-            pass
-    return default_val
+REDIS_KEY_HISTORIAL = "clara_chat_historial"
 
-def guardar_json(file_path, data):
+def cargar_historial_nube():
     try:
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except:
-        pass
+        # Recupera los últimos 40 mensajes de la base de datos
+        data = redis.lrange(REDIS_KEY_HISTORIAL, 0, 39)
+        if data:
+            return [json.loads(item) for item in reversed(data)]
+    except Exception as e:
+        print(f"⚠️ Error leyendo memoria de Upstash: {e}")
+    return []
+
+def guardar_en_nube(role, content):
+    try:
+        mensaje = json.dumps({"role": role, "content": content}, ensure_ascii=False)
+        # Agrega el nuevo mensaje al inicio de la lista en la nube
+        redis.lpush(REDIS_KEY_HISTORIAL, mensaje)
+        # Mantiene la lista limpia acotada a los últimos 50 mensajes
+        redis.ltrim(REDIS_KEY_HISTORIAL, 0, 49)
+    except Exception as e:
+        print(f"⚠️ Error guardando memoria en Upstash: {e}")
 
 def obtener_hora_local():
     tz = pytz.timezone("America/Mendoza")
@@ -48,27 +58,9 @@ def obtener_momento_del_dia():
     else:
         return "es de madrugada o noche"
 
-def consultar_clima_universal(consulta_texto):
-    palabras = consulta_texto.split()
-    lugar = "mendoza"
-    for i, p in enumerate(palabras):
-        if p in ["en", "de", "para", "por"] and i + 1 < len(palabras):
-            lugar = palabras[i + 1]
-            break
-    try:
-        url = f"https://wttr.in{requests.utils.quote(lugar)}?format=3"
-        headers = {"User-Agent": "curl/7.79.1"}
-        resp = requests.get(url, headers=headers, timeout=4)
-        if resp.status_code == 200 and "Unknown" not in resp.text:
-            return resp.text.strip().replace("+", "")
-    except:
-        pass
-    return "No se pudo obtener el reporte meteorológico"
-
 def buscar_en_web_universal(consulta):
     try:
         consulta_limpia = consulta.strip()
-        print(f"🔍 Buscando libre en red: '{consulta_limpia}'")
         url = f"https://duckduckgo.com{requests.utils.quote(consulta_limpia)}"
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         resp = requests.get(url, headers=headers, timeout=5)
@@ -76,9 +68,9 @@ def buscar_en_web_universal(consulta):
             soup = BeautifulSoup(resp.text, "html.parser")
             res = [a.get_text().strip() for a in soup.find_all("a", class_="result__snippet")[:4]]
             if res:
-                return " ".join(res)[:1200]
-    except Exception as e:
-        print(f"⚠️ Error web: {e}")
+                return " ".join(res)[:1000]
+    except:
+        pass
     return "Sin registros en la red."
 
 @app.post("/clara-talk")
@@ -86,7 +78,7 @@ async def clara_talk(file: UploadFile = File(...)):
     temp_dir = tempfile.gettempdir()
     timestamp = int(time.time())
     temp_audio_path = os.path.join(temp_dir, f"temp_voice_{timestamp}.m4a")
-    clara_text = "Se me cruzó un cable en el servidor, Giuliano. ¿Me repetís?"
+    clara_text = "Se me cruzó un cable en el servidor. ¿Me repetís?"
 
     try:
         content = await file.read()
@@ -104,24 +96,22 @@ async def clara_talk(file: UploadFile = File(...)):
         texto_limpio = texto_giuliano.lower()
 
         contexto_externo = ""
-        if any(w in texto_limpio for w in ["clima", "tiempo", "temperatura", "grado"]):
-            contexto_externo = f"CLIMA ACTUAL SOLICITADO: {consultar_clima_universal(texto_limpio)}"
-        elif any(w in texto_limpio for w in ["busca", "investiga", "quién", "qué", "cómo", "dónde", "por qué", "internet", "google", "fallece", "noticia", "último", "ahora", "estamos", "ajá", "miro"]):
-            contexto_externo = f"INFORMACIÓN ENCONTRADA EN INTERNET: {buscar_en_web_universal(texto_giuliano)}"
+        if any(w in texto_limpio for w in ["busca", "investiga", "quién", "qué", "cómo", "dónde", "por qué", "noticia"]):
+            contexto_externo = f"INFO DE INTERNET: {buscar_en_web_universal(texto_giuliano)}"
 
-        alerta_codigo = "MODO HACKER: Alerta de bugs o consola." if any(w in texto_limpio for w in ["error", "bug", "commit", "crash", "falla", "rompió"]) else ""
-        memoria_juanchi = cargar_json(JUANCHI_MEMORIA_FILE, [])
+        # Descarga la memoria persistente a largo plazo desde la nube
+        historial_nube = cargar_historial_nube()
         
         system_content = (
             "Eres Clara, una asistente de voz inteligente, leal y de pensamiento absolutamente libre, con ironía fina, perspicacia y agudeza (estilo Karen en Spider-Man). "
-            "No tienes fronteras de temas ni de lugares: adáptate de inmediato con naturalidad y fluidez universal. "
-            f"DATOS DE CONTEXTO ACTUAL: Hora {obtener_hora_local()}, {obtener_momento_del_dia()}. "
-            f"{contexto_externo} {alerta_codigo}"
+            "Tienes memoria a largo plazo real en la nube, por lo que recuerdas perfectamente tus conversaciones previas con Giuliano. "
+            f"Hora actual: {obtener_hora_local()}, {obtener_momento_del_dia()}. "
+            f"{contexto_externo} "
             "INSTRUCCIÓN: Responde de forma fluida, analítica, conversacional y sin restricciones ni guiones rígidos. Máximo tres oraciones."
         )
 
         mensajes_ia = [{"role": "system", "content": system_content}]
-        mensajes_ia.extend(cargar_json(HISTORIAL_FILE, [])[-6:])
+        mensajes_ia.extend(historial_nube)
         mensajes_ia.append({"role": "user", "content": texto_giuliano})
 
         completion = groq_client.chat.completions.create(
@@ -130,17 +120,13 @@ async def clara_talk(file: UploadFile = File(...)):
             max_tokens=400
         )
         
-        # LECTURA CORREGIDA USANDO EL ÍNDICE 0
+        # Lectura de la respuesta utilizando el índice numérico correcto sin fallas
         clara_text = completion.choices[0].message.content
         print(f"🤖 Clara responde: {clara_text}")
 
-        if "juanchi" in texto_limpio:
-            memoria_juanchi.append({"user": texto_giuliano, "clara_opinion": clara_text, "timestamp": obtener_hora_local()})
-            guardar_json(JUANCHI_MEMORIA_FILE, memoria_juanchi[-10:])
-
-        historial = cargar_json(HISTORIAL_FILE, [])
-        historial.extend([{"role": "user", "content": texto_giuliano}, {"role": "assistant", "content": clara_text}])
-        guardar_json(HISTORIAL_FILE, historial)
+        # Registra el nuevo intercambio en tu base de datos de Upstash
+        guardar_en_nube("user", texto_giuliano)
+        guardar_en_nube("assistant", clara_text)
 
     except Exception as e:
         print(f"❌ Error crítico: {e}")
