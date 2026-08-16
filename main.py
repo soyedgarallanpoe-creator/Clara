@@ -96,15 +96,15 @@ async def clara_talk(file: UploadFile = File(...)):
         texto_giuliano = transcription.text
         print(f"🗣️ Giuliano dijo: {texto_giuliano}")
 
-        # INTERCEPCIÓN DIRECTA DE LA HORA: Si le preguntas qué hora es, responde directo por código
+        # INTERCEPCIÓN TOTAL: Si la palabra "hora" aparece de cualquier forma, responde directo el servidor
         texto_limpio = texto_giuliano.lower()
-        if "hora es" in texto_limpio or "qué hora" in texto_limpio or "dame la hora" in texto_limpio:
+        if "hora" in texto_limpio:
             hora_mza = obtener_hora_limpia()
             clara_text = f"La hora en Mendoza es las {hora_mza}."
-            print(f"🤖 Clara responde directo: {clara_text}")
+            print(f"🤖 Clara responde directo por código: {clara_text}")
             return PlainTextResponse(clara_text)
 
-        # Si no es la hora, sigue el flujo normal con la inteligencia de Groq
+        # Si no menciona la hora, sigue el flujo normal con la inteligencia de Groq
         historial = cargar_json(HISTORIAL_FILE, [])
         perfil_emocional = cargar_json(PERFIL_FILE, {"animo_previo": "neutral", "notas": "Comenzando a conocer a Giuliano"})
         contexto_actual = obtener_contexto_mendoza()
@@ -130,7 +130,7 @@ async def clara_talk(file: UploadFile = File(...)):
             max_tokens=400
         )
         
-        clara_text = completion.choices[0].message.content
+        clara_text = completion.choices.message.content
         print(f"🤖 Clara responde: {clara_text}")
 
         historial.append({"role": "user", "content": texto_giuliano})
@@ -158,7 +158,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara está activa, respondiendo la hora de forma directa y exacta"}
+    return {"estado": "Clara está activa, interceptando la hora de manera fija y exacta"}
 
 if __name__ == "__main__":
     import uvicorn
