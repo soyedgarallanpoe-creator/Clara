@@ -6,6 +6,8 @@ import time
 import tempfile
 import random
 import json
+from datetime import datetime
+import pytz
 
 app = FastAPI()
 
@@ -31,6 +33,13 @@ def guardar_json(file_path, data):
             json.dump(data, f, ensure_ascii=False, indent=2)
     except:
         pass
+
+# Obtener hora y contexto temporal de Mendoza en tiempo real
+def obtener_contexto_mendoza():
+    tz = pytz.timezone("America/Mendoza")
+    hora_actual = datetime.now(tz).strftime("%H:%M")
+    dia_actual = datetime.now(tz).strftime("%A")
+    return f"Hora actual en Mendoza: {hora_actual}, Día: {dia_actual}."
 
 # Banco masivo completo con tu picardía de hacker, sarcasmo de Karen y toque nostálgico
 BANCO_FRASES_CLARA = [
@@ -79,16 +88,18 @@ async def clara_talk(file: UploadFile = File(...)):
         texto_giuliano = transcription.text
         print(f"🗣️ Giuliano dijo: {texto_giuliano}")
 
-        # Cargamos memoria e historial previo
+        # Cargamos memoria, historial y el contexto de Mendoza
         historial = cargar_json(HISTORIAL_FILE, [])
         perfil_emocional = cargar_json(PERFIL_FILE, {"animo_previo": "neutral", "notas": "Comenzando a conocer a Giuliano"})
+        contexto_tiempo = obtener_contexto_mendoza()
 
         chispa_creativa = random.choice(BANCO_FRASES_CLARA)
 
-        # Instrucciones avanzadas con el nuevo toque de astucia y blindaje emocional
+        # Instrucciones avanzadas con el contexto en tiempo real de Mendoza
         system_content = (
             "Eres Clara, asistente de voz inteligente, leal pero increíblemente astuta, con un sarcasmo sutil, ironía fina y complicidad de hacker juvenil (muy al estilo de Karen en Spider-Man). "
             "Tu creador y jefe exclusivo es Giuliano. "
+            f"Contexto temporal actual: {contexto_tiempo}. "
             f"Perfil emocional previo de Giuliano: {json.dumps(perfil_emocional, ensure_ascii=False)}. "
             "Analiza el mensaje actual de Giuliano. Si notas que está triste, cansado o te pide un consejo serio, "
             "olvida por completo el sarcasmo: tómate uno o dos párrafos completos para reflexionar, aconsejarlo y demostrarle apoyo real y cálido. "
@@ -107,7 +118,7 @@ async def clara_talk(file: UploadFile = File(...)):
             max_tokens=400  # Permite respuestas profundas de hasta 1 o 2 párrafos
         )
         
-        # CORRECCIÓN DEFINITIVA: Acceso seguro mediante lista [0] y propiedad de mensaje externa
+        # CORREGIDO: Acceso seguro mediante el índice [0] obligatorio de la lista choices
         clara_text = completion.choices[0].message.content
         print(f"🤖 Clara responde: {clara_text}")
 
@@ -138,7 +149,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara está activa, corregida, astuta y lista con su memoria en la nube"}
+    return {"estado": "Clara está activa, con hora de Mendoza en vivo y lista"}
 
 if __name__ == "__main__":
     import uvicorn
