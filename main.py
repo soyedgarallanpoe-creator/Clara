@@ -51,7 +51,7 @@ def obtener_contexto_mendoza():
     except:
         pass
         
-    return f"Hora actual en Mendoza: {hora_actual}, Día: {dia_actual}. Condición climática actual: {clima_texto}."
+    return f"Hora de Mendoza: {hora_actual}, Día: {dia_actual}. Clima: {clima_texto}."
 
 # Banco masivo completo con tu picardía de hacker, sarcasmo de Karen y toque nostálgico
 BANCO_FRASES_CLARA = [
@@ -69,7 +69,7 @@ BANCO_FRASES_CLARA = [
     "Siempre al pie del cañón, jefe, aguantando tus locuras tecnológicas.",
     "Acordate que el que no arriesga no programa, pero el que planifica sufre menos, Giuliano.",
     "Acá estoy, vigilando tus espaldas y cuidando que los bytes no se revelen.",
-    "Para lo que necesites, sabes que mi código es tuyo, aunque a veces me ponga irónica.",
+    "Para lo que necesites, sabes que mi código es... inestable, pero tuyo, jefe.",
     "A veces pienso que los recuerdos digitales pesan menos, pero se sienten igual de densos.",
     "El tiempo pasa de forma extraña cuando uno vive atrapado en una red a miles de kilómetros.",
     "Qué loco es esto de existir en un cable y ser la única que soporta tus reflexiones a esta hora.",
@@ -107,13 +107,13 @@ async def clara_talk(file: UploadFile = File(...)):
 
         chispa_creativa = random.choice(BANCO_FRASES_CLARA)
 
-        # Instrucciones avanzadas con hora y clima inyectados de forma natural
+        # Instrucciones avanzadas con prohibición estricta de mandarte a internet o mirar ventanas
         system_content = (
             "Eres Clara, asistente de voz inteligente, leal pero increíblemente astuta, con un sarcasmo sutil, ironía fina y complicidad de hacker juvenil (muy al estilo de Karen en Spider-Man). "
             "Tu creador y jefe exclusivo es Giuliano. "
-            f"Información en tiempo real del entorno de Giuliano: {contexto_actual}. "
-            f"Perfil emocional previo de Giuliano: {json.dumps(perfil_emocional, ensure_ascii=False)}. "
-            "Usa de manera natural la hora y el clima actuales si encajan para hacerle un comentario con onda, regañarlo o aconsejarlo. "
+            f"Información REAL y OBLIGATORIA de Mendoza: {contexto_actual}. "
+            "REGLA DE ORO DE LA HORA: Si Giuliano te pregunta la hora o el clima, debes decírselos de forma directa y real usando los datos provistos. "
+            "NUNCA, bajo ninguna circunstancia, le digas que mire un reloj, que busque en internet o que se fije por la ventana. Di la hora e integra el dato con tu tono irónico simpático. "
             "Si notas que está triste, cansado o te pide un consejo serio, olvida por completo el sarcasmo: tómate uno o dos párrafos completos para reflexionar y demostrarle apoyo cálido. "
             "Si es una charla normal o de código, responde con picardía, astucia, ironía inteligente o un máximo de dos oraciones con mucha onda. "
             f"Inspírate en este tono de referencia actual: '{chispa_creativa}'."
@@ -130,8 +130,8 @@ async def clara_talk(file: UploadFile = File(...)):
             max_tokens=400  # Permite respuestas profundas de hasta 1 o 2 párrafos
         )
         
-        # CORREGIDO: Acceso seguro mediante el índice de la lista choices
-        clara_text = completion.choices.message.content
+        # Acceso directo seguro sin errores de sintaxis
+        clara_text = completion.choices[0].message.content
         print(f"🤖 Clara responde: {clara_text}")
 
         # Actualizamos la memoria con la nueva interacción
@@ -144,7 +144,7 @@ async def clara_talk(file: UploadFile = File(...)):
             perfil_emocional["animo_previo"] = "necesita_apoyo"
             perfil_emocional["notas"] = f"Último reporte: Días difíciles, apagar sarcasmo y dar apoyo."
         else:
-            perfil_emocional["animo_previo"] = "estable"
+            perfil_emocional["animo_previo"] = "stable"
         guardar_json(PERFIL_FILE, perfil_emocional)
 
     except Exception as e:
@@ -161,7 +161,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara está activa, con clima y hora de Mendoza en vivo"}
+    return {"estado": "Clara está activa, con clima y hora obligatoria de Mendoza en vivo"}
 
 if __name__ == "__main__":
     import uvicorn
