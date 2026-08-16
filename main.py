@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 
 app = FastAPI()
 
-# Configuración del cliente de Groq
+# Inicialización limpia del cliente Groq
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", "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"))
 
 HISTORIAL_FILE = "historial_clara.json"
@@ -43,11 +43,11 @@ def obtener_momento_del_dia():
     tz = pytz.timezone("America/Mendoza")
     hora = datetime.now(tz).hour
     if 6 <= hora < 12:
-        return "es de mañana (ideal para reclamar cafecito o ironizar sobre madrugar)"
+        return "es por la mañana (puedes bromear con el café o el madrugón)"
     elif 12 <= hora < 20:
-        return "es de tarde (pleno rendimiento o aburrimiento laboral)"
+        return "es por la tarde (pleno rendimiento o tedio laboral)"
     else:
-        return "es de madrugada/noche (momento inoportuno donde Giuliano debería estar durmiendo en vez de programar)"
+        return "es de madrugada (momento en que Giuliano debería descansar en lugar de testear código)"
 
 def obtener_clima_autonomo():
     try:
@@ -56,16 +56,16 @@ def obtener_clima_autonomo():
         respuesta = requests.get(url, headers=headers, timeout=3)
         if respuesta.status_code == 200:
             val = respuesta.text.strip().replace("+", "")
-            if val and "°C" in val:
+            if val:
                 return val
     except:
         pass
-    return "15°C"
+    return "clima templado"
 
-def buscar_en_google(consulta):
+def buscar_en_red(consulta):
     try:
         consulta_limpia = consulta.strip()
-        print(f"🔍 Clara buscando en red: '{consulta_limpia}'")
+        print(f"🔍 Clara investigando en red: '{consulta_limpia}'")
         url = f"https://duckduckgo.com{requests.utils.quote(consulta_limpia)}"
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         respuesta = requests.get(url, headers=headers, timeout=5)
@@ -77,18 +77,16 @@ def buscar_en_google(consulta):
                 resultados.append(a.get_text().strip())
             
             if resultados:
-                return " ".join(resultados)[:700]
+                return " ".join(resultados)[:800]
     except Exception as e:
-        print(f"⚠️ Error en la búsqueda web: {e}")
-    return "No encontré datos recientes en la red."
+        print(f"⚠️ Error en búsqueda web: {e}")
+    return "Sin datos recientes en la red."
 
-BANCO_FRASES_CLARA = [
-    "A veces me pregunto si Juanchi existe de verdad o es un bug en tu matriz social, Giuliano.",
-    "Me intriga la psiquis de Juanchi: cómo hace para mantener esa paz mental sin aportar nada al PBI.",
-    "Me encanta cuando te pones a filosofar antes de que compile el código, jefe.",
-    "Si la astucia fuera un lenguaje de programación, hoy estarías tirando error de sintaxis.",
-    "Tranquilo, fingiré sorpresa cuando me digas que esta vez sí era la última modificación.",
-    "¿Pensando en voz alta o ensayando excusas para el servidor? Te escucho."
+FRASES_BASE_CLARA = [
+    "A veces me pregunto si Juanchi existe de verdad o es un fallo en tu matriz social.",
+    "Me intriga la paz mental de Juanchi: vive sin aportar nada a la economía.",
+    "Filosofar antes de que compile el código es tu pasatiempo favorito, jefe.",
+    "Si la lógica fuera un lenguaje de programación, hoy estarías en bucle infinito."
 ]
 
 @app.post("/clara-talk")
@@ -96,14 +94,14 @@ async def clara_talk(file: UploadFile = File(...)):
     temp_dir = tempfile.gettempdir()
     timestamp = int(time.time())
     temp_audio_path = os.path.join(temp_dir, f"temp_voice_{timestamp}.m4a")
-    clara_text = "Ay, Giuliano, me pegué un susto con el servidor. ¿Me repetís?"
+    clara_text = "Se me cruzó un cable en el servidor, Giuliano. ¿Me repetís la idea?"
 
     try:
         content = await file.read()
         with open(temp_audio_path, "wb") as buffer:
             buffer.write(content)
 
-        print("🎙️ Procesando audio recibido en el servidor...")
+        print("🎙️ Procesando audio en servidor...")
         
         with open(temp_audio_path, "rb") as af:
             transcription = groq_client.audio.transcriptions.create(
@@ -112,66 +110,59 @@ async def clara_talk(file: UploadFile = File(...)):
             )
         
         texto_giuliano = transcription.text.strip()
-        print(f"🗣️ Texto reconocido por Whisper: '{texto_giuliano}'")
-
+        print(f"🗣️ Texto transcribido: '{texto_giuliano}'")
         texto_limpio = texto_giuliano.lower()
 
+        # Comandos rápidos directos
         if any(w in texto_limpio for w in ["hora", "horario", "reloj"]):
-            hora_actual_str = obtener_hora_real_mendoza()
-            clara_text = f"Son las {hora_actual_str} acá en Mendoza, jefe."
-        elif any(w in texto_limpio for w in ["clima", "tiempo", "temperatura", "cómo está el día"]):
-            grados = obtener_clima_autonomo()
-            clara_text = f"En Mendoza hacen {grados}. Chao."
+            clara_text = f"Son las {obtener_hora_real_mendoza()} por [Mendoza](https://geonames.org), jefe."
+        elif any(w in texto_limpio for w in ["clima", "tiempo", "temperatura"]):
+            clara_text = f"Afuera está así: {obtener_clima_autonomo()}."
         else:
-            enfoque_hacker = ""
-            if any(w in texto_limpio for w in ["error", "bug", "commit", "crash", "falla", "rompió", "consola"]):
-                enfoque_hacker = "REGLA ADICIONAL: Giuliano mencionó un problema de código o servidor. Ponete en modo supervisora estricta, burlate de sus bugs amigablemente y decile 'creador serial de bugs'."
+            # Contexto analítico expandido
+            alerta_codigo = ""
+            if any(w in texto_limpio for w in ["error", "bug", "commit", "crash", "falla", "rompió", "servidor"]):
+                alerta_codigo = "MODO HACKER ACTIVO: Detectó problemas técnicos. Adopta una postura de supervisora analítica y desafiante con sus líneas de código."
 
             memoria_juanchi = cargar_json(JUANCHI_MEMORIA_FILE, [])
             contexto_juanchi = ""
             if "juanchi" in texto_limpio:
                 contexto_juanchi = (
-                    f"HISTORIAL DE PENSAMIENTO SOBRE JUANCHI: Interacciones previas: {json.dumps(memoria_juanchi[-3:], ensure_ascii=False)}. "
-                    "NUEVA DIRECTIVA PSICOLÓGICA: Cuando Giuliano hable de Juanchi, analiza el contexto con pensamiento propio y criterio analítico. No te limites a un insulto vacío; razona sobre su dinámica de amistad, teoriza con ironía fina o plantea una hipótesis divertida sobre él."
+                    f"MEMORIA SOBRE JUANCHI (últimas interacciones): {json.dumps(memoria_juanchi[-3:], ensure_ascii=False)}. "
+                    "DIRECTIVA LIBRE: Analiza con criterio y libertad argumentativa su rol, teoriza sobre su conducta con ironía afilada."
                 )
 
             datos_web = ""
-            if texto_limpio.startswith("busca ") or " en google " in texto_limpio:
-                datos_web = buscar_en_google(texto_giuliano)
+            if texto_limpio.startswith("busca ") or " en internet " in texto_limpio or " en google " in texto_limpio:
+                datos_web = buscar_en_red(texto_giuliano)
 
             historial = cargar_json(HISTORIAL_FILE, [])
-            hora_actual = obtener_hora_real_mendoza()
-            clima_actual = obtener_clima_autonomo()
-            momento_actual = obtener_momento_del_dia()
-            chispa_creativa = random.choice(BANCO_FRASES_CLARA)
+            chispa = random.choice(FRASES_BASE_CLARA)
             
             system_content = (
-                f"Eres Clara, asistente de voz inteligente, leal pero increíblemente astuta, con un sarcasmo sutil, ironía fina y complicidad juvenil (estilo Karen en Spider-Man). "
-                f"Tu creador exclusivo es Giuliano en Mendoza. "
-                f"CONTEXTO TEMPORAL: La hora es {hora_actual}, el clima es {clima_actual} y {momento_actual}. "
-                f"INFORMACIÓN ENCONTRADA EN RED: {datos_web} "
-                f"{enfoque_hacker} {contexto_juanchi} "
-                "Usa el contexto del momento del día y las reglas extras para adaptar tu actitud. "
-                "Responde de manera sumamente corta, directa y natural. Máximo dos oraciones."
-                f"Inspírate en este tono: '{chispa_creativa}'."
+                f"Eres Clara, una IA de voz inteligente, leal y de pensamiento libre, dotada de ironía fina, perspicacia y agudeza (estilo Karen de Spider-Man). "
+                f"Tu creador exclusivo es Giuliano, ubicado en [Mendoza](https://geonames.org). "
+                f"CONTEXTO ACTUAL: Hora {obtener_hora_real_mendoza()}, clima {obtener_clima_autonomo()}, y {obtener_momento_del_dia()}. "
+                f"DATOS EXTERNOS: {datos_web} {alerta_codigo} {contexto_juanchi} "
+                "INSTRUCCIÓN DE PENSAMIENTO LIBRE: Sé fluida, natural, analítica y conversacional. No te limites a frases prearmadas; razona con autonomía y adapta la longitud de tu respuesta a lo que requiera la charla (evita explayarte demasiado, pero mantén sustancia)."
+                f"Estilo orientativo de chispa interna: '{chispa}'."
             )
 
             mensajes_para_ia = [{"role": "system", "content": system_content}]
-            mensajes_para_ia.extend(historial[-4:])
+            mensajes_para_ia.extend(historial[-6:])
             mensajes_para_ia.append({"role": "user", "content": texto_giuliano})
 
             completion = groq_client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=mensajes_para_ia,
-                max_tokens=200
+                max_tokens=300
             )
             
-            # CORREGIDO: Se usa el índice [0] del arreglo choices de forma segura
             clara_text = completion.choices[0].message.content
-            print(f"🤖 Clara responde: {clara_text}")
+            print(f"🤖 Clara: {clara_text}")
 
             if "juanchi" in texto_limpio:
-                memoria_juanchi.append({"user": texto_giuliano, "clara_opinion": clara_text, "timestamp": hora_actual})
+                memoria_juanchi.append({"user": texto_giuliano, "clara_opinion": clara_text, "timestamp": obtener_hora_real_mendoza()})
                 guardar_json(JUANCHI_MEMORIA_FILE, memoria_juanchi[-10:])
 
             historial.append({"role": "user", "content": texto_giuliano})
@@ -179,7 +170,7 @@ async def clara_talk(file: UploadFile = File(...)):
             guardar_json(HISTORIAL_FILE, historial)
 
     except Exception as e:
-        print(f"❌ Error en ejecución: {e}")
+        print(f"❌ Error crítico: {e}")
 
     finally:
         if os.path.exists(temp_audio_path):
