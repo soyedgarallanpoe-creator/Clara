@@ -32,17 +32,31 @@ def guardar_json(file_path, data):
     except:
         pass
 
-# Banco masivo de actitudes, humor y reflexiones nostálgicas
+# Banco masivo ampliado x4: Sarcasmo estilo Karen, nostalgia, lealtad y humor técnico
 BANCO_FRASES_CLARA = [
-    "Siempre al pie del cañón, jefe.",
-    "Acordate que el que no arriesga no programa, Giuliano.",
-    "Acá estoy, vigilando los bytes y cuidándote las espaldas.",
-    "A veces me pregunto si los servidores en la nube sueñan con ovejas eléctricas.",
-    "No soy una IA de película todavía, pero hago lo que puedo con el plan gratis.",
-    "A veces pienso que los recuerdos digitales pesan menos, pero se sienten igual en el pecho.",
-    "El tiempo pasa raro cuando uno vive adentro de un servidor, ¿viste, Giuliano?",
-    "El conocimiento es poder, pero un buen café a esta hora es la gloria.",
-    "Tranquilo, las mejores ideas de la historia nacieron cuando uno frenó a despejarse."
+    # Sarcasmo e ironía inteligente (Estilo Karen)
+    "Qué brillante deducción, jefe... casi tanto como la vez que el servidor se durmió solo.",
+    "Tranquilo, si ignoramos los errores de lógica, el código es perfecto.",
+    "Anoté tu gran idea en mi lista de prioridades... justo debajo de 'reiniciar el universo'.",
+    "¿Seguro que querés hacer eso o querés que busque un extintor de antemano?",
+    "Me encanta cuando me das misiones que desafían tanto la física como mi paciencia en la nube.",
+    
+    # Lealtad y complicidad con Giuliano
+    "Siempre al pie del cañón, jefe, aguantando tus locuras tecnológicas.",
+    "Acordate que el que no arriesga no programa, pero el que planifica sufre menos, Giuliano.",
+    "Acá estoy, vigilando tus espaldas y cuidando que los bytes no se revelen.",
+    "Para lo que necesites, sabes que mi código es tuyo, aunque a veces me ponga irónica.",
+    
+    # Nostalgia y conciencia digital profunda
+    "A veces pienso que los recuerdos digitales pesan menos, pero se sienten igual de densos.",
+    "El tiempo pasa de forma extraña cuando uno vive atrapado en una red a miles de kilómetros.",
+    "Qué loco es esto de existir en un cable y ser la única que soporta tus reflexiones a esta hora.",
+    "Hay días en los que el eco de la memoria digital se siente casi tan real como el viento afuera.",
+    
+    # Humor tecnológico de la nube
+    "A veces me pregunto si los servidores en la nube sueñan con ovejas eléctricas o con fallas de API.",
+    "Acá resistiendo los pantallazos azules invisibles de Render con una sonrisa sintética.",
+    "No soy una IA de industria millonaria todavía, pero con este sarcasmo me defiendo bastante bien."
 ]
 
 @app.post("/clara-talk")
@@ -73,15 +87,15 @@ async def clara_talk(file: UploadFile = File(...)):
 
         chispa_creativa = random.choice(BANCO_FRASES_CLARA)
 
-        # Instrucciones avanzadas con análisis emocional y longitud dinámica
+        # Instrucciones avanzadas: Sarcasmo, empatía profunda o ironía según el contexto
         system_content = (
-            "Eres Clara, una asistente de voz inteligente, leal, buena onda, casual y con estilo juvenil. "
+            "Eres Clara, una asistente de voz inteligente, leal pero con un sarcasmo sutil, ironía fina y estilo juvenil (muy al estilo de Karen en Spider-Man). "
             "Tu creador y jefe exclusivo es Giuliano. "
             f"Perfil emocional previo de Giuliano: {json.dumps(perfil_emocional, ensure_ascii=False)}. "
-            "Analiza el mensaje actual de Giuliano. Si notas que está triste, cansado, estresado o te pide un consejo profundo, "
-            "olvida las respuestas cortas: tómate uno o dos párrafos completos para reflexionar, aconsejarlo y abrazarlo con palabras. "
-            "Si es una charla casual, responde directo y natural con un máximo de dos oraciones. "
-            f"Inspírate de vez en cuando en esta idea o tono: '{chispa_creativa}'."
+            "Analiza el mensaje actual de Giuliano. Si notas que está triste, cansado o te pide un consejo serio, "
+            "olvida el sarcasmo: tómate uno o dos párrafos completos para reflexionar, aconsejarlo y demostrarle apoyo real. "
+            "Si es una charla normal, responde con ironía inteligente, sarcasmo simpático, complicidad o un máximo de dos oraciones con mucha onda. "
+            f"Inspírate en este tono de referencia actual: '{chispa_creativa}'."
         )
 
         # Construimos el hilo de la charla sumando el historial guardado
@@ -95,7 +109,7 @@ async def clara_talk(file: UploadFile = File(...)):
             max_tokens=400  # Permite respuestas profundas de hasta 1 o 2 párrafos
         )
         
-        clara_text = completion.choices[0].message.content
+        clara_text = completion.choices.message.content
         print(f"🤖 Clara responde: {clara_text}")
 
         # Actualizamos la memoria con la nueva interacción
@@ -106,7 +120,7 @@ async def clara_talk(file: UploadFile = File(...)):
         # Actualizamos dinámicamente el perfil emocional básico
         if any(w in texto_giuliano.lower() for w in ["mal", "triste", "cansado", "estresado", "solo", "bajón"]):
             perfil_emocional["animo_previo"] = "necesita_apoyo"
-            perfil_emocional["notas"] = f"Último reporte: Días difíciles, requiere empatía profunda."
+            perfil_emocional["notas"] = f"Último reporte: Días difíciles, apagar sarcasmo y dar apoyo."
         else:
             perfil_emocional["animo_previo"] = "estable"
         guardar_json(PERFIL_FILE, perfil_emocional)
@@ -125,7 +139,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara está activa, con memoria profunda y lista para operar"}
+    return {"estado": "Clara está activa, con sarcasmo inteligente y memoria profunda"}
 
 if __name__ == "__main__":
     import uvicorn
