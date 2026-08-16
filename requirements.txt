@@ -2,5 +2,5 @@ fastapi
 uvicorn
 groq
 python-multipart
-requests
 pytz
+requests
