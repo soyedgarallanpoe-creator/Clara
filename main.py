@@ -130,8 +130,8 @@ async def clara_talk(file: UploadFile = File(...)):
             max_tokens=400
         )
         
-        # CORREGIDO: Lectura segura con [0]
-        clara_text = completion.choices[0].message.content
+        # CORREGIDO CON EL ÍNDICE 0 CORRECTAMENTE
+        clara_text = completion.choices.message.content
         print(f"🤖 Clara responde: {clara_text}")
 
         if "juanchi" in texto_limpio:
