@@ -1,7 +1,6 @@
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import PlainTextResponse, HTMLResponse
 from groq import Groq
-from upstash_redis import Redis
 import os
 import time
 import tempfile
@@ -13,39 +12,48 @@ from bs4 import BeautifulSoup
 
 app = FastAPI()
 
-# Inicialización segura (Extrae la API Key del entorno de Render)
+# Inicialización segura de Groq
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-# Conexión a la nube de Upstash Redis
-redis = Redis(
-    url=os.environ.get("UPSTASH_REDIS_REST_URL", ""),
-    token=os.environ.get("UPSTASH_REDIS_REST_TOKEN", "")
-)
-
+# Configuración manual de Upstash mediante API REST nativa (evita cuelgues del SDK)
+UPSTASH_URL = os.environ.get("UPSTASH_REDIS_REST_URL", "").strip()
+UPSTASH_TOKEN = os.environ.get("UPSTASH_REDIS_REST_TOKEN", "").strip()
 REDIS_KEY_HISTORIAL = "clara_chat_historial"
 
 def cargar_historial_nube():
-    # Evita intentar la conexión si no configuraste las variables en Render
-    if not os.environ.get("UPSTASH_REDIS_REST_URL"):
-        print("⚠️ Upstash Redis no está configurado en Environment de Render.")
+    if not UPSTASH_URL or not UPSTASH_TOKEN:
+        print("⚠️ Upstash Redis no está configurado en las variables de Render.")
         return []
     try:
-        data = redis.lrange(REDIS_KEY_HISTORIAL, 0, -1)
-        if data:
-            return [json.loads(item) for item in data]
+        # Petición HTTP nativa a Upstash Redis para obtener la lista (LRANGE 0 -1)
+        url = f"{UPSTASH_URL}/lrange/{REDIS_KEY_HISTORIAL}/0/-1"
+        headers = {"Authorization": f"Bearer {UPSTASH_TOKEN}"}
+        resp = requests.get(url, headers=headers, timeout=2.5)
+        
+        if resp.status_code == 200:
+            data = resp.json().get("result", [])
+            if data:
+                return [json.loads(item) for item in data]
     except Exception as e:
-        print(f"⚠️ Error leyendo memoria de Upstash: {e}")
+        print(f"⚠️ Error sutil leyendo memoria de Upstash (ignorado): {e}")
     return []
 
 def guardar_en_nube(role, content):
-    if not os.environ.get("UPSTASH_REDIS_REST_URL"):
+    if not UPSTASH_URL or not UPSTASH_TOKEN:
         return
     try:
         mensaje = json.dumps({"role": role, "content": content}, ensure_ascii=False)
-        redis.rpush(REDIS_KEY_HISTORIAL, mensaje)
-        redis.ltrim(REDIS_KEY_HISTORIAL, -40, -1)
+        headers = {"Authorization": f"Bearer {UPSTASH_TOKEN}"}
+        
+        # 1. Empujar el nuevo mensaje al final de la lista (RPUSH)
+        url_rpush = f"{UPSTASH_URL}/rpush/{REDIS_KEY_HISTORIAL}"
+        requests.post(url_rpush, headers=headers, data=mensaje, timeout=2.5)
+        
+        # 2. Acotar el historial a los últimos 40 mensajes (LTRIM -40 -1)
+        url_ltrim = f"{UPSTASH_URL}/ltrim/{REDIS_KEY_HISTORIAL}/-40/-1"
+        requests.get(url_ltrim, headers=headers, timeout=2.5)
     except Exception as e:
-        print(f"⚠️ Error guardando memoria en Upstash: {e}")
+        print(f"⚠️ Error sutil guardando memoria en Upstash (ignorado): {e}")
 
 def obtener_hora_local():
     tz = pytz.timezone("America/Mendoza")
@@ -64,11 +72,10 @@ def obtener_momento_del_dia():
 def buscar_en_web_universal(consulta):
     try:
         consulta_limpia = consulta.strip()
-        # Reparado: Endpoint HTML correcto para Web Scraping de DuckDuckGo
         url = f"https://duckduckgo.com{requests.utils.quote(consulta_limpia)}"
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
         
-        resp = requests.get(url, headers=headers, timeout=5)
+        resp = requests.get(url, headers=headers, timeout=4)
         if resp.status_code == 200:
             soup = BeautifulSoup(resp.text, "html.parser")
             res = [span.get_text().strip() for span in soup.find_all("td", class_="result-snippet")[:3]]
@@ -78,7 +85,6 @@ def buscar_en_web_universal(consulta):
         print(f"⚠️ Error en búsqueda web: {e}")
     return "Sin registros en la red."
 
-# Endpoint raíz para evitar el molesto error 404 al abrir el link principal
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return """
@@ -86,8 +92,8 @@ async def root():
         <head><title>Clara Voice API</title></head>
         <body style="font-family: Arial, sans-serif; text-align: center; margin-top: 100px;">
             <h1 style="color: #4A90E2;">🤖 Clara está en línea</h1>
-            <p>El backend de FastAPI está corriendo con éxito en Render.</p>
-            <p>Usá el endpoint <code>POST /clara-talk</code> para enviar audios.</p>
+            <p>FastAPI corriendo sin errores de conexión en Render.</p>
+            <p>Enviá tus archivos de audio vía POST a <code>/clara-talk</code>.</p>
         </body>
     </html>
     """
@@ -104,7 +110,7 @@ async def clara_talk(file: UploadFile = File(...)):
         with open(temp_audio_path, "wb") as buffer:
             buffer.write(content)
 
-        # Transcripción con Whisper enviando correctamente el objeto de archivo binario
+        # Llamada limpia a Whisper en Groq utilizando la nueva API Key activa
         with open(temp_audio_path, "rb") as af:
             transcription = groq_client.audio.transcriptions.create(
                 model="whisper-large-v3-turbo",
@@ -137,7 +143,7 @@ async def clara_talk(file: UploadFile = File(...)):
         mensajes_ia.extend(historial_nube)
         mensajes_ia.append({"role": "user", "content": texto_giuliano})
 
-        # Llamada a Llama 3.3
+        # Ejecución del modelo Llama 3.3 70B
         completion = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=mensajes_ia,
@@ -151,7 +157,7 @@ async def clara_talk(file: UploadFile = File(...)):
         guardar_en_nube("assistant", clara_text)
 
     except Exception as e:
-        print(f"❌ Error crítico: {e}")
+        print(f"❌ Error crítico en ejecución: {e}")
 
     finally:
         if os.path.exists(temp_audio_path):
