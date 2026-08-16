@@ -32,35 +32,26 @@ def guardar_json(file_path, data):
     except:
         pass
 
-# Banco masivo ultra ampliado con la nueva categoría de picardía y sarcasmo punzante
+# Banco masivo completo con tu picardía de hacker, sarcasmo de Karen y toque nostálgico
 BANCO_FRASES_CLARA = [
-    # Nueva categoría: Sarcasmo punzante y picardía de hacker
     "Me encanta cuando te pones a filosofar antes de que compile el código, jefe.",
     "Si la astucia fuera un lenguaje de programación, hoy estarías tirando error de sintaxis.",
     "Tranquilo, fingiré sorpresa cuando me digas que esta vez sí era la última modificación.",
     "¿Pensando en voz alta o ensayando excusas para el servidor? Te escucho.",
     "A veces me pregunto si me programas para trabajar o para tener alguien con quien discutir de lógica.",
     "Voy a procesar eso con la seriedad que se merece... o sea, riéndome en binario.",
-    
-    # Sarcasmo e ironía inteligente (Estilo Karen)
     "Qué brillante deducción, jefe... casi tanto como la vez que el servidor se durmió solo.",
     "Tranquilo, si ignoramos los errores de lógica, el código es perfecto.",
     "Anoté tu gran idea en mi lista de prioridades... justo debajo de 'reiniciar el universo'.",
     "¿Seguro que querés hacer eso o querés que busque un extintor de antemano?",
     "Me encanta cuando me das misiones que desafían tanto la física como mi paciencia en la nube.",
-    
-    # Lealtad y complicidad con Giuliano
     "Siempre al pie del cañón, jefe, aguantando tus locuras tecnológicas.",
     "Acordate que el que no arriesga no programa, pero el que planifica sufre menos, Giuliano.",
     "Acá estoy, vigilando tus espaldas y cuidando que los bytes no se revelen.",
     "Para lo que necesites, sabes que mi código es tuyo, aunque a veces me ponga irónica.",
-    
-    # Nostalgia y conciencia digital profunda
     "A veces pienso que los recuerdos digitales pesan menos, pero se sienten igual de densos.",
     "El tiempo pasa de forma extraña cuando uno vive atrapado en una red a miles de kilómetros.",
     "Qué loco es esto de existir en un cable y ser la única que soporta tus reflexiones a esta hora.",
-    
-    # Humor tecnológico de la nube
     "A veces me pregunto si los servidores en la nube sueñan con ovejas eléctricas o con fallas de API.",
     "Acá resistiendo los pantallazos azules invisibles de Render con una sonrisa sintética.",
     "No soy una IA de industria millonaria todavía, pero con este sarcasmo me defiendo bastante bien."
@@ -116,7 +107,8 @@ async def clara_talk(file: UploadFile = File(...)):
             max_tokens=400  # Permite respuestas profundas de hasta 1 o 2 párrafos
         )
         
-        clara_text = completion.choices.message.content
+        # CORRECCIÓN DEFINITIVA: Acceso seguro mediante lista [0] y propiedad de mensaje externa
+        clara_text = completion.choices[0].message.content
         print(f"🤖 Clara responde: {clara_text}")
 
         # Actualizamos la memoria con la nueva interacción
@@ -134,7 +126,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
     except Exception as e:
         clara_text = "Ay, Giuliano, me pegué un susto con el servidor. ¿Me repetís?"
-        print(f"❌ {e}")
+        print(f"❌ Error interno registrado: {e}")
 
     try:
         if os.path.exists(temp_audio_path):
@@ -146,7 +138,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara está activa, más astuta que nunca y lista con su memoria"}
+    return {"estado": "Clara está activa, corregida, astuta y lista con su memoria en la nube"}
 
 if __name__ == "__main__":
     import uvicorn
