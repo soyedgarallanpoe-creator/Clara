@@ -52,14 +52,20 @@ def obtener_momento_del_dia():
 def obtener_clima_real_mendoza():
     try:
         url = "https://open-meteo.com"
-        respuesta = requests.get(url, timeout=4)
+        respuesta = requests.get(url, timeout=5)
+        print(f"📡 Estado HTTP Clima: {respuesta.status_code}")
+        
         if respuesta.status_code == 200:
             datos = respuesta.json()
-            temperatura = datos["current"]["temperature_2m"]
-            return f"{int(round(temperatura))}°C"
+            print(f"📦 Datos crudos de Open-Meteo: {datos}")
+            temperatura = datos.get("current", {}).get("temperature_2m")
+            
+            if temperatura is not None:
+                return f"{int(round(temperatura))}°C"
     except Exception as e:
-        print(f"⚠️ No se pudo obtener el clima: {e}")
-    return "12°C"
+        print(f"⚠️ Error exacto al obtener el clima: {e}")
+    
+    return "22°C"
 
 def buscar_en_google(consulta):
     try:
@@ -161,8 +167,7 @@ async def clara_talk(file: UploadFile = File(...)):
                 max_tokens=200
             )
             
-            # Corregido con el índice [0] obligatorio de Groq/OpenAI
-            clara_text = completion.choices[0].message.content
+            clara_text = completion.choices.message.content
             print(f"🤖 Clara responde: {clara_text}")
 
             historial.append({"role": "user", "content": texto_giuliano})
@@ -183,7 +188,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara 1.3.4 activa, choices[0] corregido y texto plano garantizado"}
+    return {"estado": "Clara 1.3.5 activa, depuración de clima y logs mejorados"}
 
 if __name__ == "__main__":
     import uvicorn
