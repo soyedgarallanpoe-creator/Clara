@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 
 app = FastAPI()
 
-# Configuración del cliente de Groq (recuerda configurar tu variable de entorno GROQ_API_KEY)
+# Configuración del cliente de Groq
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", "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"))
 
 HISTORIAL_FILE = "historial_clara.json"
@@ -106,7 +106,7 @@ async def clara_talk(file: UploadFile = File(...)):
         print("🎙️ Procesando audio recibido en el servidor...")
         
         with open(temp_audio_path, "rb") as af:
-            transcription = [groq_client.audio.transcriptions.create](https://groq.com)(
+            transcription = groq_client.audio.transcriptions.create(
                 model="whisper-large-v3-turbo",
                 file=(temp_audio_path, af.read()),
             )
@@ -160,12 +160,13 @@ async def clara_talk(file: UploadFile = File(...)):
             mensajes_para_ia.extend(historial[-4:])
             mensajes_para_ia.append({"role": "user", "content": texto_giuliano})
 
-            completion = [groq_client.chat.completions.create](https://groq.com)(
+            completion = groq_client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=mensajes_para_ia,
                 max_tokens=200
             )
             
+            # CORREGIDO: Se usa el índice [0] del arreglo choices de forma segura
             clara_text = completion.choices[0].message.content
             print(f"🤖 Clara responde: {clara_text}")
 
@@ -181,7 +182,6 @@ async def clara_talk(file: UploadFile = File(...)):
         print(f"❌ Error en ejecución: {e}")
 
     finally:
-        # Limpieza segura del archivo temporal de audio en disco
         if os.path.exists(temp_audio_path):
             try:
                 os.remove(temp_audio_path)
