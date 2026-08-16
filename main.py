@@ -63,8 +63,10 @@ def obtener_clima_autonomo():
 
 def buscar_en_google(consulta):
     try:
-        print(f"🔍 Clara buscando en red: '{consulta}'")
-        url = f"https://duckduckgo.com{requests.utils.quote(consulta)}"
+        # Limpiamos la consulta pura para evitar errores de URL rotas
+        consulta_limpia = consulta.strip()
+        print(f"🔍 Clara buscando en red: '{consulta_limpia}'")
+        url = f"https://duckduckgo.com{requests.utils.quote(consulta_limpia)}"
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         respuesta = requests.get(url, headers=headers, timeout=5)
         
@@ -125,7 +127,6 @@ async def clara_talk(file: UploadFile = File(...)):
             if any(w in texto_limpio for w in ["error", "bug", "commit", "crash", "falla", "rompió", "consola"]):
                 enfoque_hacker = "REGLA ADICIONAL: Giuliano mencionó un problema de código o servidor. Ponete en modo supervisora estricta, burlate de sus bugs amigablemente y decile 'creador serial de bugs'."
 
-            # MEMORIA DINÁMICA DE JUANCHI
             memoria_juanchi = cargar_json(JUANCHI_MEMORIA_FILE, [])
             contexto_juanchi = ""
             if "juanchi" in texto_limpio:
@@ -135,7 +136,8 @@ async def clara_talk(file: UploadFile = File(...)):
                 )
 
             datos_web = ""
-            if any(w in texto_limpio for w in ["busca", "google", "quién es", "qué es", "noticias", "partido", "ganó", "información sobre"]):
+            # Activación segura solo para consultas informativas reales
+            if any(w in texto_limpio for w in ["busca ", "google ", "quién es ", "qué es ", "noticias ", "partido ", "ganó ", "información sobre "]):
                 datos_web = buscar_en_google(texto_giuliano)
 
             historial = cargar_json(HISTORIAL_FILE, [])
@@ -165,13 +167,13 @@ async def clara_talk(file: UploadFile = File(...)):
                 max_tokens=200
             )
             
-            clara_text = completion.choices.message.content
+            # Corrección de la lectura del objeto message en choices de Groq
+            clara_text = completion.choices[0].message.content
             print(f"🤖 Clara responde: {clara_text}")
 
-            # Si se habló de Juanchi, guardamos la interacción en su memoria libre específica
             if "juanchi" in texto_limpio:
                 memoria_juanchi.append({"user": texto_giuliano, "clara_opinion": clara_text, "timestamp": hora_actual})
-                guardar_json(JUANCHI_MEMORIA_FILE, memoria_juanchi[-10:]) # Guarda las últimas 10 opiniones sobre él
+                guardar_json(JUANCHI_MEMORIA_FILE, memoria_juanchi[-10:])
 
             historial.append({"role": "user", "content": texto_giuliano})
             historial.append({"role": "assistant", "content": clara_text})
@@ -191,7 +193,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara 1.3.14 activa, memoria libre y evolutiva sobre Juanchi implementada"}
+    return {"estado": "Clara 1.3.15 activa, error de índice en list y URL corregidos"}
 
 if __name__ == "__main__":
     import uvicorn
