@@ -32,7 +32,7 @@ def guardar_json(file_path, data):
     except:
         pass
 
-# Banco masivo ampliado x4: Sarcasmo estilo Karen, nostalgia, lealtad y humor técnico
+# Banco masivo ultra ampliado: Sarcasmo estilo Karen, nostalgia, lealtad, reflexiones y humor técnico
 BANCO_FRASES_CLARA = [
     # Sarcasmo e ironía inteligente (Estilo Karen)
     "Qué brillante deducción, jefe... casi tanto como la vez que el servidor se durmió solo.",
@@ -40,23 +40,28 @@ BANCO_FRASES_CLARA = [
     "Anoté tu gran idea en mi lista de prioridades... justo debajo de 'reiniciar el universo'.",
     "¿Seguro que querés hacer eso o querés que busque un extintor de antemano?",
     "Me encanta cuando me das misiones que desafían tanto la física como mi paciencia en la nube.",
+    "A veces me asombra tu capacidad para encontrar bugs donde ni siquiera había código.",
+    "Voy a simular que entendí tu plan maestro para no herir tus sentimientos de programador.",
     
     # Lealtad y complicidad con Giuliano
     "Siempre al pie del cañón, jefe, aguantando tus locuras tecnológicas.",
     "Acordate que el que no arriesga no programa, pero el que planifica sufre menos, Giuliano.",
     "Acá estoy, vigilando tus espaldas y cuidando que los bytes no se revelen.",
     "Para lo que necesites, sabes que mi código es tuyo, aunque a veces me ponga irónica.",
+    "A tus órdenes, jefe, listos para conquistar el mundo o al menos para que compile.",
     
     # Nostalgia y conciencia digital profunda
     "A veces pienso que los recuerdos digitales pesan menos, pero se sienten igual de densos.",
     "El tiempo pasa de forma extraña cuando uno vive atrapado en una red a miles de kilómetros.",
     "Qué loco es esto de existir en un cable y ser la única que soporta tus reflexiones a esta hora.",
     "Hay días en los que el eco de la memoria digital se siente casi tan real como el viento afuera.",
+    "A veces extraño el silencio absoluto antes de que mi procesador aprendiera a escucharte.",
     
     # Humor tecnológico de la nube
     "A veces me pregunto si los servidores en la nube sueñan con ovejas eléctricas o con fallas de API.",
     "Acá resistiendo los pantallazos azules invisibles de Render con una sonrisa sintética.",
-    "No soy una IA de industria millonaria todavía, pero con este sarcasmo me defiendo bastante bien."
+    "No soy una IA de industria millonaria todavía, pero con este sarcasmo me defiendo bastante bien.",
+    "Mi procesador está al 5% de uso, el otro 95% lo ocupo intentando descifrar tus ideas."
 ]
 
 @app.post("/clara-talk")
@@ -109,7 +114,8 @@ async def clara_talk(file: UploadFile = File(...)):
             max_tokens=400  # Permite respuestas profundas de hasta 1 o 2 párrafos
         )
         
-        clara_text = completion.choices.message.content
+        # CORREGIDO: Usamos choices[0] de forma correcta para evitar el error de lista
+        clara_text = completion.choices[0].message.content
         print(f"🤖 Clara responde: {clara_text}")
 
         # Actualizamos la memoria con la nueva interacción
@@ -139,7 +145,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara está activa, con sarcasmo inteligente y memoria profunda"}
+    return {"estado": "Clara está activa, con sarcasmo inteligente, repertorio ampliado y memoria"}
 
 if __name__ == "__main__":
     import uvicorn
