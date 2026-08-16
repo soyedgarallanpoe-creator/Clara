@@ -56,12 +56,15 @@ def obtener_clima_real_mendoza():
         print(f"📡 Estado HTTP Clima: {respuesta.status_code}")
         
         if respuesta.status_code == 200:
-            datos = respuesta.json()
-            print(f"📦 Datos crudos de Open-Meteo: {datos}")
-            temperatura = datos.get("current", {}).get("temperature_2m")
-            
-            if temperatura is not None:
-                return f"{int(round(temperatura))}°C"
+            if respuesta.text and respuesta.headers.get("content-type", "").startswith("application/json"):
+                datos = respuesta.json()
+                print(f"📦 Datos crudos de Open-Meteo: {datos}")
+                temperatura = datos.get("current", {}).get("temperature_2m")
+                
+                if temperatura is not None:
+                    return f"{int(round(temperatura))}°C"
+            else:
+                print("⚠️ La respuesta de Open-Meteo no es un JSON válido:", respuesta.text[:100])
     except Exception as e:
         print(f"⚠️ Error exacto al obtener el clima: {e}")
     
@@ -168,7 +171,7 @@ async def clara_talk(file: UploadFile = File(...)):
                 max_tokens=200
             )
             
-            clara_text = completion.choices[0].message.content
+            clara_text = completion.choices.message.content
             print(f"🤖 Clara responde: {clara_text}")
 
             historial.append({"role": "user", "content": texto_giuliano})
@@ -189,7 +192,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara 1.3.5 activa, depuración de clima y logs mejorados"}
+    return {"estado": "Clara 1.3.6 activa, validación JSON de clima implementada"}
 
 if __name__ == "__main__":
     import uvicorn
