@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 
 app = FastAPI()
 
+# Configuración del cliente de Groq (recuerda configurar tu variable de entorno GROQ_API_KEY)
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", "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"))
 
 HISTORIAL_FILE = "historial_clara.json"
@@ -105,7 +106,7 @@ async def clara_talk(file: UploadFile = File(...)):
         print("🎙️ Procesando audio recibido en el servidor...")
         
         with open(temp_audio_path, "rb") as af:
-            transcription = groq_client.audio.transcriptions.create(
+            transcription = [groq_client.audio.transcriptions.create](https://groq.com)(
                 model="whisper-large-v3-turbo",
                 file=(temp_audio_path, af.read()),
             )
@@ -134,7 +135,6 @@ async def clara_talk(file: UploadFile = File(...)):
                     "NUEVA DIRECTIVA PSICOLÓGICA: Cuando Giuliano hable de Juanchi, analiza el contexto con pensamiento propio y criterio analítico. No te limites a un insulto vacío; razona sobre su dinámica de amistad, teoriza con ironía fina o plantea una hipótesis divertida sobre él."
                 )
 
-            # Búsqueda desactivada por defecto a menos que pidas explícitamente buscar en internet con formato seguro
             datos_web = ""
             if texto_limpio.startswith("busca ") or " en google " in texto_limpio:
                 datos_web = buscar_en_google(texto_giuliano)
@@ -160,13 +160,12 @@ async def clara_talk(file: UploadFile = File(...)):
             mensajes_para_ia.extend(historial[-4:])
             mensajes_para_ia.append({"role": "user", "content": texto_giuliano})
 
-            completion = groq_client.chat.completions.create(
+            completion = [groq_client.chat.completions.create](https://groq.com)(
                 model="llama-3.3-70b-versatile",
                 messages=mensajes_para_ia,
                 max_tokens=200
             )
             
-            # Corrección de lectura segura usando el índice [0] del array choices
             clara_text = completion.choices[0].message.content
             print(f"🤖 Clara responde: {clara_text}")
 
@@ -182,18 +181,11 @@ async def clara_talk(file: UploadFile = File(...)):
         print(f"❌ Error en ejecución: {e}")
 
     finally:
-        try:
-            if os.path.exists(temp_audio_path):
+        # Limpieza segura del archivo temporal de audio en disco
+        if os.path.exists(temp_audio_path):
+            try:
                 os.remove(temp_audio_path)
-        except:
-            pass
+            except:
+                pass
 
     return PlainTextResponse(clara_text)
-
-@app.get("/")
-def leer_raiz():
-    return {"estado": "Clara 1.3.17 activa, choices index y activador web blindados"}
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
