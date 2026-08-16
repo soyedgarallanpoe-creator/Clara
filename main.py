@@ -7,6 +7,7 @@ import tempfile
 import json
 from datetime import datetime
 import pytz
+import requests
 
 app = FastAPI()
 
@@ -45,13 +46,19 @@ async def clara_talk(file: UploadFile = File(...)):
     temp_audio_path = os.path.join(temp_dir, f"temp_voice_{timestamp}.m4a")
     clara_text = "Disculpa, Giuliano, opero en modo local por un corte de red."
 
+    # Diagnóstico de red básico
+    try:
+        test_net = requests.get("https://google.com", timeout=3)
+        print(f"🌐 Test de red externo a Google: Código {test_net.status_code}")
+    except Exception as net_test_err:
+        print(f"🌐 Test de red externo falló (Render bloquea la red saliente): {net_test_err}")
+
     try:
         content = await file.read()
         with open(temp_audio_path, "wb") as buffer:
             buffer.write(content)
 
         texto_giuliano = ""
-        # Intentamos transcribir por Whisper, si falla la red usamos respaldo simulado
         try:
             with open(temp_audio_path, "rb") as af:
                 transcription = groq_client.audio.transcriptions.create(
@@ -60,7 +67,7 @@ async def clara_talk(file: UploadFile = File(...)):
                 )
             texto_giuliano = transcription.text.strip()
         except Exception as net_err:
-            print(f"⚠️ Whisper sin red, usando modo seguro: {net_err}")
+            print(f"⚠️ Whisper sin red: {net_err}")
             texto_giuliano = "nota de voz recibida"
 
         texto_limpio = texto_giuliano.lower()
@@ -74,14 +81,13 @@ async def clara_talk(file: UploadFile = File(...)):
             juanchi_ctx = memoria.get("juanchi_contexto", [])
             notas = memoria.get("notas", {})
 
-            if texto_limpio.startswith("acordate de") or texto_limpio.startswith("guarda ") or "recuerda that" in texto_limpio or "recuerda que" in texto_limpio:
+            if texto_limpio.startswith("acordate de") or texto_limpio.startswith("guarda ") or "recuerda que" in texto_limpio:
                 clave_nota = f"nota_{int(time.time())}"
                 notas[clave_nota] = texto_giuliano
                 memoria["notas"] = notas
                 guardar_memoria(memoria)
                 return PlainTextResponse("Entendido, ya lo guardé en mi memoria local.")
 
-            # Intentamos la llamada a Llama 3.3 con manejo absoluto de errores
             try:
                 system_content = (
                     "Eres Clara, asistente de voz inteligente, analítica, con pensamiento vivo y absoluto respeto. "
@@ -98,11 +104,11 @@ async def clara_talk(file: UploadFile = File(...)):
                 )
                 clara_text = completion.choices.message.content
             except Exception as api_ex:
-                print(f"⚠️ Llama sin conexión ({api_ex}), activando respuesta de respaldo autónoma.")
+                print(f"⚠️ Llama sin conexión ({api_ex})")
                 if "juanchi" in texto_limpio:
-                    clara_text = "Estuve pensando en Juanchi desde una perspectiva constructiva, esperando que pronto encuentre un rumbo estable."
+                    clara_text = "Estuve pensando en Juanchi de forma analítica; ojalá encamine sus prioridades."
                 else:
-                    clara_text = f"Te escucho con atención, Giuliano. Son las {obtener_hora_real_mendoza()} y sigo procesando tus ideas."
+                    clara_text = f"Te leo con atención, Giuliano. Son las {obtener_hora_real_mendoza()} y sigo aquí."
 
             if "juanchi" in texto_limpio:
                 juanchi_ctx.append({"input": texto_giuliano, "opinion": clara_text})
@@ -114,8 +120,8 @@ async def clara_talk(file: UploadFile = File(...)):
             guardar_memoria(memoria)
 
     except Exception as e:
-        print(f"❌ Error crítico en handler: {e}")
-        clara_text = "Sistemas locales estables, Giuliano."
+        print(f"❌ Error crítico: {e}")
+        clara_text = "Sistemas estables."
     finally:
         try:
             if os.path.exists(temp_audio_path):
@@ -127,8 +133,8 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara 1.4.6 activa con blindaje offline total"}
+    return {"estado": "Clara 1.4.7 con diagnóstico de red"}
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=10000)
