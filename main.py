@@ -1,5 +1,5 @@
 from fastapi import FastAPI, File, UploadFile
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, HTMLResponse
 from groq import Groq
 from upstash_redis import Redis
 import os
@@ -13,20 +13,23 @@ from bs4 import BeautifulSoup
 
 app = FastAPI()
 
-# Inicialización segura (Asegúrate de setear GROQ_API_KEY en tus variables de entorno)
+# Inicialización segura (Extrae la API Key del entorno de Render)
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-# Conexión a Upstash Redis
+# Conexión a la nube de Upstash Redis
 redis = Redis(
-    url=os.environ.get("UPSTASH_REDIS_REST_URL"),
-    token=os.environ.get("UPSTASH_REDIS_REST_TOKEN")
+    url=os.environ.get("UPSTASH_REDIS_REST_URL", ""),
+    token=os.environ.get("UPSTASH_REDIS_REST_TOKEN", "")
 )
 
 REDIS_KEY_HISTORIAL = "clara_chat_historial"
 
 def cargar_historial_nube():
+    # Evita intentar la conexión si no configuraste las variables en Render
+    if not os.environ.get("UPSTASH_REDIS_REST_URL"):
+        print("⚠️ Upstash Redis no está configurado en Environment de Render.")
+        return []
     try:
-        # Trae los mensajes en orden cronológico correcto
         data = redis.lrange(REDIS_KEY_HISTORIAL, 0, -1)
         if data:
             return [json.loads(item) for item in data]
@@ -35,11 +38,11 @@ def cargar_historial_nube():
     return []
 
 def guardar_en_nube(role, content):
+    if not os.environ.get("UPSTASH_REDIS_REST_URL"):
+        return
     try:
         mensaje = json.dumps({"role": role, "content": content}, ensure_ascii=False)
-        # rpush mete al final, manteniendo el orden de lectura natural para la IA
         redis.rpush(REDIS_KEY_HISTORIAL, mensaje)
-        # Mantiene la lista acotada a los últimos 40 mensajes (20 interacciones)
         redis.ltrim(REDIS_KEY_HISTORIAL, -40, -1)
     except Exception as e:
         print(f"⚠️ Error guardando memoria en Upstash: {e}")
@@ -61,20 +64,33 @@ def obtener_momento_del_dia():
 def buscar_en_web_universal(consulta):
     try:
         consulta_limpia = consulta.strip()
-        # Corregido: Endpoint HTML correcto para Web Scraping en DuckDuckGo
+        # Reparado: Endpoint HTML correcto para Web Scraping de DuckDuckGo
         url = f"https://duckduckgo.com{requests.utils.quote(consulta_limpia)}"
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
         
         resp = requests.get(url, headers=headers, timeout=5)
         if resp.status_code == 200:
             soup = BeautifulSoup(resp.text, "html.parser")
-            # Extrae los snippets reales de la estructura HTML de DuckDuckGo
             res = [span.get_text().strip() for span in soup.find_all("td", class_="result-snippet")[:3]]
             if res:
                 return " ".join(res)[:1000]
     except Exception as e:
         print(f"⚠️ Error en búsqueda web: {e}")
     return "Sin registros en la red."
+
+# Endpoint raíz para evitar el molesto error 404 al abrir el link principal
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return """
+    <html>
+        <head><title>Clara Voice API</title></head>
+        <body style="font-family: Arial, sans-serif; text-align: center; margin-top: 100px;">
+            <h1 style="color: #4A90E2;">🤖 Clara está en línea</h1>
+            <p>El backend de FastAPI está corriendo con éxito en Render.</p>
+            <p>Usá el endpoint <code>POST /clara-talk</code> para enviar audios.</p>
+        </body>
+    </html>
+    """
 
 @app.post("/clara-talk")
 async def clara_talk(file: UploadFile = File(...)):
@@ -84,12 +100,11 @@ async def clara_talk(file: UploadFile = File(...)):
     clara_text = "Se me cruzó un cable en el servidor. ¿Me repetís?"
 
     try:
-        # Guardar audio entrante
         content = await file.read()
         with open(temp_audio_path, "wb") as buffer:
             buffer.write(content)
 
-        # Transcripción con Whisper (Uso correcto del puntero de archivo)
+        # Transcripción con Whisper enviando correctamente el objeto de archivo binario
         with open(temp_audio_path, "rb") as af:
             transcription = groq_client.audio.transcriptions.create(
                 model="whisper-large-v3-turbo",
@@ -103,7 +118,6 @@ async def clara_talk(file: UploadFile = File(...)):
         print(f"🗣️ Escuché: '{texto_giuliano}'")
         texto_limpio = texto_giuliano.lower()
 
-        # Activar el scraping web bajo ciertas keywords
         contexto_externo = ""
         keywords = ["busca", "investiga", "quién", "qué", "cómo", "dónde", "por qué", "noticia", "cuánto"]
         if any(w in texto_limpio for w in keywords):
@@ -133,7 +147,6 @@ async def clara_talk(file: UploadFile = File(...)):
         clara_text = completion.choices[0].message.content
         print(f"🤖 Clara responde: {clara_text}")
 
-        # Persistencia en la base de datos distribuida
         guardar_en_nube("user", texto_giuliano)
         guardar_en_nube("assistant", clara_text)
 
@@ -141,7 +154,6 @@ async def clara_talk(file: UploadFile = File(...)):
         print(f"❌ Error crítico: {e}")
 
     finally:
-        # Limpieza del archivo temporal garantizada
         if os.path.exists(temp_audio_path):
             try:
                 os.remove(temp_audio_path)
