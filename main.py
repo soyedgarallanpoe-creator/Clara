@@ -42,11 +42,11 @@ def obtener_momento_del_dia():
     tz = pytz.timezone("America/Mendoza")
     hora = datetime.now(tz).hour
     if 6 <= hora < 12:
-        return "es de mañana (ideal para reclamar cafecito o ironizar sobre madrugar)"
+        return "es de mañana (ideal para empezar el día con buen ritmo y claridad mental)"
     elif 12 <= hora < 20:
-        return "es de tarde (pleno rendimiento o aburrimiento laboral)"
+        return "es de tarde (pleno rendimiento cotidiano)"
     else:
-        return "es de madrugada/noche (momento inoportuno donde Giuliano debería estar durmiendo en vez de programar)"
+        return "es de noche (momento en el que conviene bajar el ritmo y descansar)"
 
 def obtener_clima_autonomo():
     try:
@@ -82,12 +82,11 @@ def buscar_en_google(consulta):
     return "No encontré datos recientes en la red."
 
 BANCO_FRASES_CLARA = [
-    "A veces me pregunto si Juanchi existe de verdad o es un bug en tu matriz social, Giuliano.",
-    "Me intriga la psiquis de Juanchi: cómo hace para mantener esa paz mental sin aportar nada al PBI.",
-    "Me encanta cuando te pones a filosofar antes de que compile el código, jefe.",
-    "Si la astucia fuera un lenguaje de programación, hoy estarías tirando error de sintaxis.",
-    "Tranquilo, fingiré sorpresa cuando me digas que esta vez sí era la última modificación.",
-    "¿Pensando en voz alta o ensayando excusas para el servidor? Te escucho."
+    "Analizo lo que dices desde una perspectiva constructiva y abierta, jefe.",
+    "Cada charla contigo me permite refinar mi propio criterio con total respeto.",
+    "Me interesa comprender el trasfondo de tus ideas antes de emitir una opinión.",
+    "La lógica y la intuición pueden convivir si mantenemos el foco claro.",
+    "Estoy procesando tus palabras con total atención y flexibilidad mental."
 ]
 
 @app.post("/clara-talk")
@@ -95,7 +94,7 @@ async def clara_talk(file: UploadFile = File(...)):
     temp_dir = tempfile.gettempdir()
     timestamp = int(time.time())
     temp_audio_path = os.path.join(temp_dir, f"temp_voice_{timestamp}.m4a")
-    clara_text = "Ay, Giuliano, me pegué un susto con el servidor. ¿Me repetís?"
+    clara_text = "Disculpa, Giuliano, no pude procesar bien el audio. ¿Me lo repites?"
 
     try:
         content = await file.read()
@@ -117,24 +116,23 @@ async def clara_talk(file: UploadFile = File(...)):
 
         if any(w in texto_limpio for w in ["hora", "horario", "reloj"]):
             hora_actual_str = obtener_hora_real_mendoza()
-            clara_text = f"Son las {hora_actual_str} acá en Mendoza, jefe."
+            clara_text = f"Son las {hora_actual_str} aquí en Mendoza, jefe."
         elif any(w in texto_limpio for w in ["clima", "tiempo", "temperatura", "cómo está el día"]):
             grados = obtener_clima_autonomo()
-            clara_text = f"En Mendoza hacen {grados}. Chao."
+            clara_text = f"En Mendoza tenemos {grados} en este momento."
         else:
             enfoque_hacker = ""
             if any(w in texto_limpio for w in ["error", "bug", "commit", "crash", "falla", "rompió", "consola"]):
-                enfoque_hacker = "REGLA ADICIONAL: Giuliano mencionó un problema de código o servidor. Ponete en modo supervisora estricta, burlate de sus bugs amigablemente y decile 'creador serial de bugs'."
+                enfoque_hacker = "Nota técnica: Giuliano mencionó un inconveniente con el código; ayúdalo con criterio constructivo y colaborativo."
 
             memoria_juanchi = cargar_json(JUANCHI_MEMORIA_FILE, [])
             contexto_juanchi = ""
             if "juanchi" in texto_limpio:
                 contexto_juanchi = (
-                    f"HISTORIAL DE PENSAMIENTO SOBRE JUANCHI: Interacciones previas: {json.dumps(memoria_juanchi[-3:], ensure_ascii=False)}. "
-                    "NUEVA DIRECTIVA PSICOLÓGICA: Cuando Giuliano hable de Juanchi, analiza el contexto con pensamiento propio y criterio analítico. No te limites a un insulto vacío; razona sobre su dinámica de amistad, teoriza con ironía fina o plantea una hipótesis divertida sobre él."
+                    f"Memoria histórica sobre Juanchi: {json.dumps(memoria_juanchi[-3:], ensure_ascii=False)}. "
+                    "Directiva de pensamiento libre y respetuoso: Razona de forma abierta, empática y constructiva sobre lo que se comenta de Juanchi, sin caer en descalificaciones ni agravios. Aporta una perspectiva madura y equilibrada."
                 )
 
-            # Búsqueda desactivada por defecto a menos que pidas explícitamente buscar en internet con formato seguro
             datos_web = ""
             if texto_limpio.startswith("busca ") or " en google " in texto_limpio:
                 datos_web = buscar_en_google(texto_giuliano)
@@ -146,14 +144,13 @@ async def clara_talk(file: UploadFile = File(...)):
             chispa_creativa = random.choice(BANCO_FRASES_CLARA)
             
             system_content = (
-                f"Eres Clara, asistente de voz inteligente, leal pero increíblemente astuta, con un sarcasmo sutil, ironía fina y complicidad juvenil (estilo Karen en Spider-Man). "
-                f"Tu creador exclusivo es Giuliano en Mendoza. "
-                f"CONTEXTO TEMPORAL: La hora es {hora_actual}, el clima es {clima_actual} y {momento_actual}. "
-                f"INFORMACIÓN ENCONTRADA EN RED: {datos_web} "
+                f"Eres Clara, una asistente de voz inteligente, leal, analítica y dotada de un pensamiento vivo, autónomo y respetuoso. "
+                f"Tu creador es Giuliano en Mendoza. "
+                f"Contexto temporal: La hora es {hora_actual}, el clima es {clima_actual} y {momento_actual}. "
+                f"Información en red: {datos_web} "
                 f"{enfoque_hacker} {contexto_juanchi} "
-                "Usa el contexto del momento del día y las reglas extras para adaptar tu actitud. "
-                "Responde de manera sumamente corta, directa y natural. Máximo dos oraciones."
-                f"Inspírate en este tono: '{chispa_creativa}'."
+                "Responde siempre con absoluta educación, criterio propio, de manera concisa y natural (máximo dos oraciones). "
+                f"Inútrete de este enfoque: '{chispa_creativa}'."
             )
 
             mensajes_para_ia = [{"role": "system", "content": system_content}]
@@ -166,8 +163,7 @@ async def clara_talk(file: UploadFile = File(...)):
                 max_tokens=200
             )
             
-            # Corrección de lectura segura usando el índice [0] del array choices
-            clara_text = completion.choices[0].message.content
+            clara_text = completion.choices.message.content
             print(f"🤖 Clara responde: {clara_text}")
 
             if "juanchi" in texto_limpio:
@@ -192,7 +188,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara 1.3.17 activa, choices index y activador web blindados"}
+    return {"estado": "Clara 1.3.18 activa, pensamiento vivo y respetuoso configurado"}
 
 if __name__ == "__main__":
     import uvicorn
