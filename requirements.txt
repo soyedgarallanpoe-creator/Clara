@@ -4,5 +4,6 @@ groq
 python-multipart
 pytz
 requests
+bs4
 beautifulsoup4
 upstash-redis
