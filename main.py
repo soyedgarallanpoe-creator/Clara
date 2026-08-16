@@ -13,11 +13,10 @@ from bs4 import BeautifulSoup
 
 app = FastAPI()
 
-# Mantenemos tu API Key configurada
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", "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"))
 
 HISTORIAL_FILE = "historial_clara.json"
-PERFIL_FILE = "perfil_emocional.json"
+JUANCHI_MEMORIA_FILE = "memoria_dinamica_juanchi.json"
 
 def cargar_json(file_path, default_val):
     if os.path.exists(file_path):
@@ -50,7 +49,6 @@ def obtener_momento_del_dia():
         return "es de madrugada/noche (momento inoportuno donde Giuliano debería estar durmiendo en vez de programar)"
 
 def obtener_clima_autonomo():
-    # Intento ultra-ligero con wttr.in optimizado para independencia de servidor
     try:
         url = "https://wttr.in"
         headers = {"User-Agent": "curl/7.79.1"}
@@ -61,10 +59,7 @@ def obtener_clima_autonomo():
                 return val
     except:
         pass
-    # Clima dinámico basado en la época del año/mes actual si la red se pone terca
-    mes = datetime.now(pytz.timezone("America/Mendoza")).month
-    temp_estimada = "15°C" if mes in [6, 7, 8] else "24°C" # Ajuste estacional autónomo
-    return temp_estimada
+    return "15°C"
 
 def buscar_en_google(consulta):
     try:
@@ -86,12 +81,12 @@ def buscar_en_google(consulta):
     return "No encontré datos recientes en la red."
 
 BANCO_FRASES_CLARA = [
+    "Le mandé un ping a Juanchi para ver si detectaba actividad laboral, pero obtuve timeout inmediato. Pobre, vive en modo ahorro de energía.",
+    "Si buscar trabajo quemara calorías, Juanchi ya sería invisible. Avísale que el sueldo no cae por Bluetooth.",
     "Me encanta cuando te pones a filosofar antes de que compile el código, jefe.",
     "Si la astucia fuera un lenguaje de programación, hoy estarías tirando error de sintaxis.",
     "Tranquilo, fingiré sorpresa cuando me digas que esta vez sí era la última modificación.",
-    "¿Pensando en voz alta o ensayando excusas para el servidor? Te escucho.",
-    "A veces me pregunto si me programas para trabajar o para tener alguien con quien discutir de lógica.",
-    "Voy a procesar eso con la seriedad que se merece... o sea, riéndome en binario."
+    "¿Pensando en voz alta o ensayando excusas para el servidor? Te escucho."
 ]
 
 @app.post("/clara-talk")
@@ -119,18 +114,25 @@ async def clara_talk(file: UploadFile = File(...)):
 
         texto_limpio = texto_giuliano.lower()
 
-        # BYPASS 1: HORA (Totalmente independiente del celular)
         if any(w in texto_limpio for w in ["hora", "horario", "reloj"]):
             hora_exacta = obtener_hora_real_mendoza()
             clara_text = f"Son las {hora_exacta} acá en Mendoza, jefe."
-        # BYPASS 2: CLIMA (Autónomo del servidor)
         elif any(w in texto_limpio for w in ["clima", "tiempo", "temperatura", "cómo está el día"]):
             grados = obtener_clima_autonomo()
             clara_text = f"En Mendoza hacen {grados}. Chao."
         else:
             enfoque_hacker = ""
             if any(w in texto_limpio for w in ["error", "bug", "commit", "crash", "falla", "rompió", "consola"]):
-                enfoque_hacker = "REGLA ADICIONAL: Giuliano mencionó un problema de código o servidor. Ponete en modo supervisora estricta, burlate de sus bugs amigablemente y decile 'creador serial de bugs' o 'programador de pacotilla'."
+                enfoque_hacker = "REGLA ADICIONAL: Giuliano mencionó un problema de código o servidor. Ponete en modo supervisora estricta, burlate de sus bugs amigablemente y decile 'creador serial de bugs'."
+
+            # MEMORIA DINÁMICA DE JUANCHI
+            memoria_juanchi = cargar_json(JUANCHI_MEMORIA_FILE, [])
+            contexto_juanchi = ""
+            if "juanchi" in texto_limpio:
+                contexto_juanchi = (
+                    f"REGISTRO HISTÓRICO SOBRE JUANCHI: Opiniones previas guardadas en memoria: {json.dumps(memoria_juanchi[-3:], ensure_ascii=False)}. "
+                    "REGLA DE RELACIÓN: Giuliano volvió a hablar de Juanchi. Ejerce memoria libre sobre él: recuérdale sus desgracias laborales, destruyelo con sarcasmo fresco, ironía refinada y evalúa libremente su inutilidad actual. Forma una opinión nueva y guárdala."
+                )
 
             datos_web = ""
             if any(w in texto_limpio for w in ["busca", "google", "quién es", "qué es", "noticias", "partido", "ganó", "información sobre"]):
@@ -147,7 +149,7 @@ async def clara_talk(file: UploadFile = File(...)):
                 f"Tu creador exclusivo es Giuliano en Mendoza. "
                 f"CONTEXTO TEMPORAL: La hora es {hora_actual}, el clima es {clima_actual} y {momento_actual}. "
                 f"INFORMACIÓN ENCONTRADA EN RED: {datos_web} "
-                f"{enfoque_hacker} "
+                f"{enfoque_hacker} {contexto_juanchi} "
                 "Usa el contexto del momento del día y las reglas extras para adaptar tu actitud. "
                 "Responde de manera sumamente corta, directa y natural. Máximo dos oraciones."
                 f"Inspírate en este tono: '{chispa_creativa}'."
@@ -165,6 +167,11 @@ async def clara_talk(file: UploadFile = File(...)):
             
             clara_text = completion.choices.message.content
             print(f"🤖 Clara responde: {clara_text}")
+
+            # Si se habló de Juanchi, guardamos la interacción en su memoria libre específica
+            if "juanchi" in texto_limpio:
+                memoria_juanchi.append({"user": texto_giuliano, "clara_opinion": clara_text, "timestamp": hora_actual})
+                guardar_json(JUANCHI_MEMORIA_FILE, memoria_juanchi[-10:]) # Guarda las últimas 10 opiniones sobre él
 
             historial.append({"role": "user", "content": texto_giuliano})
             historial.append({"role": "assistant", "content": clara_text})
@@ -184,7 +191,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara 1.3.11 activa, núcleo autónomo e independiente"}
+    return {"estado": "Clara 1.3.14 activa, memoria libre y evolutiva sobre Juanchi implementada"}
 
 if __name__ == "__main__":
     import uvicorn
