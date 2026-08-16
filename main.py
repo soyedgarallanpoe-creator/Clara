@@ -8,6 +8,7 @@ import random
 import json
 from datetime import datetime
 import pytz
+import requests
 
 app = FastAPI()
 
@@ -34,12 +35,23 @@ def guardar_json(file_path, data):
     except:
         pass
 
-# Obtener hora y contexto temporal de Mendoza en tiempo real
+# Obtener hora, día y clima real de Mendoza
 def obtener_contexto_mendoza():
     tz = pytz.timezone("America/Mendoza")
-    hora_actual = datetime.now(tz).strftime("%H:%M")
-    dia_actual = datetime.now(tz).strftime("%A")
-    return f"Hora actual en Mendoza: {hora_actual}, Día: {dia_actual}."
+    ahora = datetime.now(tz)
+    hora_actual = ahora.strftime("%H:%M")
+    dia_actual = ahora.strftime("%A")
+    
+    # Consultar clima actual de Mendoza gratis
+    clima_texto = "clima agradable"
+    try:
+        res = requests.get("https://wttr.in", timeout=3)
+        if res.status_code == 200:
+            clima_texto = res.text.strip() # Ej: "Mendoza: ☀️ +18°C"
+    except:
+        pass
+        
+    return f"Hora actual en Mendoza: {hora_actual}, Día: {dia_actual}. Condición climática actual: {clima_texto}."
 
 # Banco masivo completo con tu picardía de hacker, sarcasmo de Karen y toque nostálgico
 BANCO_FRASES_CLARA = [
@@ -88,21 +100,21 @@ async def clara_talk(file: UploadFile = File(...)):
         texto_giuliano = transcription.text
         print(f"🗣️ Giuliano dijo: {texto_giuliano}")
 
-        # Cargamos memoria, historial y el contexto de Mendoza
+        # Cargamos memoria, historial y el contexto en tiempo real de Mendoza
         historial = cargar_json(HISTORIAL_FILE, [])
         perfil_emocional = cargar_json(PERFIL_FILE, {"animo_previo": "neutral", "notas": "Comenzando a conocer a Giuliano"})
-        contexto_tiempo = obtener_contexto_mendoza()
+        contexto_actual = obtener_contexto_mendoza()
 
         chispa_creativa = random.choice(BANCO_FRASES_CLARA)
 
-        # Instrucciones avanzadas con el contexto en tiempo real de Mendoza
+        # Instrucciones avanzadas con hora y clima inyectados de forma natural
         system_content = (
             "Eres Clara, asistente de voz inteligente, leal pero increíblemente astuta, con un sarcasmo sutil, ironía fina y complicidad de hacker juvenil (muy al estilo de Karen en Spider-Man). "
             "Tu creador y jefe exclusivo es Giuliano. "
-            f"Contexto temporal actual: {contexto_tiempo}. "
+            f"Información en tiempo real del entorno de Giuliano: {contexto_actual}. "
             f"Perfil emocional previo de Giuliano: {json.dumps(perfil_emocional, ensure_ascii=False)}. "
-            "Analiza el mensaje actual de Giuliano. Si notas que está triste, cansado o te pide un consejo serio, "
-            "olvida por completo el sarcasmo: tómate uno o dos párrafos completos para reflexionar, aconsejarlo y demostrarle apoyo real y cálido. "
+            "Usa de manera natural la hora y el clima actuales si encajan para hacerle un comentario con onda, regañarlo o aconsejarlo. "
+            "Si notas que está triste, cansado o te pide un consejo serio, olvida por completo el sarcasmo: tómate uno o dos párrafos completos para reflexionar y demostrarle apoyo cálido. "
             "Si es una charla normal o de código, responde con picardía, astucia, ironía inteligente o un máximo de dos oraciones con mucha onda. "
             f"Inspírate en este tono de referencia actual: '{chispa_creativa}'."
         )
@@ -118,8 +130,8 @@ async def clara_talk(file: UploadFile = File(...)):
             max_tokens=400  # Permite respuestas profundas de hasta 1 o 2 párrafos
         )
         
-        # CORREGIDO: Acceso seguro mediante el índice [0] obligatorio de la lista choices
-        clara_text = completion.choices[0].message.content
+        # CORREGIDO: Acceso seguro mediante el índice de la lista choices
+        clara_text = completion.choices.message.content
         print(f"🤖 Clara responde: {clara_text}")
 
         # Actualizamos la memoria con la nueva interacción
@@ -149,7 +161,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara está activa, con hora de Mendoza en vivo y lista"}
+    return {"estado": "Clara está activa, con clima y hora de Mendoza en vivo"}
 
 if __name__ == "__main__":
     import uvicorn
