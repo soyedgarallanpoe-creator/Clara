@@ -41,7 +41,6 @@ def obtener_hora_real_mendoza():
 # Función optimizada para extraer solo los grados limpios de Mendoza
 def obtener_clima_real_mendoza():
     try:
-        # Pedimos solo la temperatura numérica de Mendoza
         respuesta = requests.get("https://wttr.in", timeout=4)
         if respuesta.status_code == 200:
             return respuesta.text.strip().replace("+", "") # Deja algo como "12°C"
@@ -91,11 +90,11 @@ async def clara_talk(file: UploadFile = File(...)):
             clara_text = f"Son las {hora_exacta} acá en Mendoza, jefe."
             return PlainTextResponse(clara_text)
 
-        # BYPASS 2: FILTRO DIRECTO PARA EL CLIMA (Python responde directo y cortito)
+        # BYPASS 2: FILTRO DIRECTO PARA EL CLIMA (Fijo, ultra directo y sin IA)
         if any(w in texto_limpio for w in ["clima", "tiempo", "temperatura", "cómo está el día"]):
             grados = obtener_clima_real_mendoza()
             clara_text = f"En Mendoza hacen {grados}. Chao."
-            print(f"🤖 Respuesta de clima forzada: {clara_text}")
+            print(f"🤖 Respuesta de clima forzada (Bypass total): {clara_text}")
             return PlainTextResponse(clara_text)
 
         # FLUJO DE CONVERSACIÓN NORMAL CON LA IA (Respuestas obligatoriamente cortas)
@@ -107,8 +106,9 @@ async def clara_talk(file: UploadFile = File(...)):
         system_content = (
             f"Eres Clara, asistente de voz inteligente, leal pero increíblemente astuta, con un sarcasmo sutil, ironía fina y complicidad juvenil (estilo Karen en Spider-Man). "
             f"Tu creador exclusivo es Giuliano en Mendoza. "
+            "REGLA DE ORO: No hables jamás de Oregón, Estados Unidos ni Boardman, tú estás en Mendoza. "
             f"DATOS REALES: La hora actual es {hora_actual} y el clima en Mendoza es {clima_actual}. "
-            "REGLA DE CONVERSACIÓN: Responde de manera sumamente corta, directa y natural. Máximo dos oraciones por respuesta. No des rodeos explicativos a menos que Giuliano te lo pida abiertamente."
+            "REGLA DE CONVERSACIÓN: Responde de manera sumamente corta, directa y natural. Máximo dos oraciones por respuesta."
             f"Inspírate en este tono de referencia actual: '{chispa_creativa}'."
         )
 
@@ -119,10 +119,10 @@ async def clara_talk(file: UploadFile = File(...)):
         completion = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=mensajes_para_ia,
-            max_tokens=150  # Bajamos los tokens para evitar que se extienda demasiado
+            max_tokens=150
         )
         
-        # VERIFICADO CON EL ÍNDICE CORRETO
+        # VERIFICADO CON EL ÍNDICE CORRETO ENTRE CORCHETES
         clara_text = completion.choices[0].message.content
         print(f"🤖 Clara responde: {clara_text}")
 
@@ -144,7 +144,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara 1.2.1 activa, filtros fijos super directos configurados"}
+    return {"estado": "Clara 1.2.2 activa, filtros de clima forzados en Mendoza"}
 
 if __name__ == "__main__":
     import uvicorn
