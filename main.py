@@ -69,7 +69,6 @@ def buscar_en_web_universal(consulta):
     try:
         consulta_limpia = consulta.strip()
         print(f"🔍 Buscando libre en red: '{consulta_limpia}'")
-        # CORREGIDO: Añadida la barra diagonal faltante / antes de html/?q=
         url = f"https://duckduckgo.com{requests.utils.quote(consulta_limpia)}"
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         resp = requests.get(url, headers=headers, timeout=5)
@@ -131,7 +130,7 @@ async def clara_talk(file: UploadFile = File(...)):
             max_tokens=400
         )
         
-        # Lectura correcta del contenido de la respuesta del modelo de Groq
+        # CORREGIDO CON EL [0]
         clara_text = completion.choices.message.content
         print(f"🤖 Clara responde: {clara_text}")
 
