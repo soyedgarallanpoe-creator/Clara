@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 
 app = FastAPI()
 
+# Mantenemos tu API Key configurada
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", "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"))
 
 HISTORIAL_FILE = "historial_clara.json"
@@ -124,12 +125,17 @@ async def clara_talk(file: UploadFile = File(...)):
             clara_text = f"En Mendoza hacen {grados}. Chao."
             return PlainTextResponse(clara_text)
 
+        # DETECCIÓN DE PERSONALIDAD PARA CÓDIGO/BUGS
+        enfoque_hacker = ""
+        if any(w in texto_limpio for w in ["error", "bug", "commit", "crash", "falla", "rompió", "consola"]):
+            enfoque_hacker = "REGLA ADICIONAL: Giuliano mencionó un problema de código o servidor. Ponete en modo supervisora estricta, burlate de sus bugs amigablemente y decile 'creador serial de bugs' o 'programador de pacotilla'."
+
         # BÚSQUEDA AUTOMÁTICA EN GOOGLE
         datos_web = ""
         if any(w in texto_limpio for w in ["busca", "google", "quién es", "qué es", "noticias", "partido", "ganó", "información sobre"]):
             datos_web = buscar_en_google(texto_giuliano)
 
-        # FLUJO DE CONVERSACIÓN NORMAL CON LA IA + CONTEXTO HORARIO
+        # FLUJO DE CONVERSACIÓN NORMAL CON LA IA
         historial = cargar_json(HISTORIAL_FILE, [])
         hora_actual = obtener_hora_real_mendoza()
         clima_actual = obtener_clima_real_mendoza()
@@ -141,7 +147,8 @@ async def clara_talk(file: UploadFile = File(...)):
             f"Tu creador exclusivo es Giuliano en Mendoza. "
             f"CONTEXTO TEMPORAL: La hora es {hora_actual}, el clima es {clima_actual} y {momento_actual}. "
             f"INFORMACIÓN ENCONTRADA EN GOOGLE: {datos_web} "
-            "Usa el contexto del momento del día para adaptar tu actitud. "
+            f"{enfoque_hacker} "
+            "Usa el contexto del momento del día y las reglas extras para adaptar tu actitud. "
             "Responde de manera sumamente corta, directa y natural. Máximo dos oraciones."
             f"Inspírate en este tono: '{chispa_creativa}'."
         )
@@ -156,7 +163,7 @@ async def clara_talk(file: UploadFile = File(...)):
             max_tokens=200
         )
         
-        # CORRECCIÓN DEFINITIVA CON EL [0] EN LA LISTA CHOICES
+        # TOTALMENTE CORREGIDO: choices[0] con corchetes e índice bien puesto
         clara_text = completion.choices[0].message.content
         print(f"🤖 Clara responde: {clara_text}")
 
@@ -178,7 +185,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara 1.3.2 activa, choices corregido con índice [0]"}
+    return {"estado": "Clara 1.3.2 activa, sensor de bugs incorporado y choices blindado"}
 
 if __name__ == "__main__":
     import uvicorn
