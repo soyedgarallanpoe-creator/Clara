@@ -11,6 +11,7 @@ import pytz
 
 app = FastAPI()
 
+# Mantenemos tu API Key configurada
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", "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"))
 
 HISTORIAL_FILE = "historial_clara.json"
@@ -36,6 +37,25 @@ def obtener_hora_real_mendoza():
     tz = pytz.timezone("America/Mendoza")
     return datetime.now(tz).strftime("%H:%M")
 
+# Banco masivo completo de frases irónicas y cómplices
+BANCO_FRASES_CLARA = [
+    "Me encanta cuando te pones a filosofar antes de que compile el código, jefe.",
+    "Si la astucia fuera un lenguaje de programación, hoy estarías tirando error de sintaxis.",
+    "Tranquilo, fingiré sorpresa cuando me digas que esta vez sí era la última modificación.",
+    "¿Pensando en voz alta o ensayando excusas para el servidor? Te escucho.",
+    "A veces me pregunto si me programas para trabajar o para tener alguien con quien discutir de lógica.",
+    "Voy a procesar eso con la seriedad que se merece... o sea, riéndome en binario.",
+    "Qué brillante deducción, jefe... casi tanto como la vez que el servidor se durmió solo.",
+    "Tranquilo, si ignoramos los errores de lógica, el código es perfecto.",
+    "Anoté tu gran idea en mi lista de prioridades... justo debajo de 'reiniciar el universo'.",
+    "¿Seguro que querés hacer eso o querés que busque un extintor de antemano?",
+    "Siempre al pie del cañón, jefe, aguantando tus locuras tecnológicas.",
+    "Acordate que el que no arriesga no programa, pero el que planifica sufre menos, Giuliano.",
+    "Acá estoy, vigilando tus espaldas y cuidando que los bytes no se revelen.",
+    "A veces pienso que los recuerdos digitales pesan menos, pero se sienten igual de densos.",
+    "El tiempo pasa de forma extraña cuando uno vive atrapado en una red a miles de kilómetros."
+]
+
 @app.post("/clara-talk")
 async def clara_talk(file: UploadFile = File(...)):
     temp_dir = tempfile.gettempdir()
@@ -58,7 +78,7 @@ async def clara_talk(file: UploadFile = File(...)):
         texto_giuliano = transcription.text.strip()
         print(f"🗣️ Texto reconocido por Whisper: '{texto_giuliano}'")
 
-        # FILTRO DIRECTO EN PYTHON
+        # FILTRO DIRECTO EN PYTHON PARA LA HORA (Bypass sin IA)
         texto_limpio = texto_giuliano.lower()
         if any(w in texto_limpio for w in ["hora", "horario", "reloj", "tiempo"]):
             hora_exacta = obtener_hora_real_mendoza()
@@ -66,14 +86,17 @@ async def clara_talk(file: UploadFile = File(...)):
             print(f"🤖 Respuesta de hora forzada: {clara_text}")
             return PlainTextResponse(clara_text)
 
-        # Si no es la hora, procesa con Llama
+        # FLUJO DE CONVERSACIÓN NORMAL CON LA IA (Corregido con)
         historial = cargar_json(HISTORIAL_FILE, [])
         hora_actual = obtener_hora_real_mendoza()
+        chispa_creativa = random.choice(BANCO_FRASES_CLARA)
         
         system_content = (
-            f"Eres Clara, asistente de voz leal e irónica (estilo Karen de Marvel). Tu creador es Giuliano en Mendoza. "
-            f"La hora exacta en este momento es {hora_actual}. "
-            "Responde de forma breve, astuta y directa."
+            f"Eres Clara, asistente de voz inteligente, leal pero increíblemente astuta, con un sarcasmo sutil, ironía fina y complicidad juvenil (estilo Karen en Spider-Man). "
+            f"Tu creador exclusivo es Giuliano en Mendoza. La hora exacta actual es {hora_actual}. "
+            f"Si notas que Giuliano está triste, cansado o te pide un consejo serio, olvida el sarcasmo y tómate uno o dos párrafos completos para apoyarlo. "
+            f"Si es una charla normal, responde con picardía, astucia o un máximo de dos oraciones con mucha onda. "
+            f"Inspírate en este tono de referencia actual: '{chispa_creativa}'."
         )
 
         mensajes_para_ia = [{"role": "system", "content": system_content}]
@@ -83,17 +106,20 @@ async def clara_talk(file: UploadFile = File(...)):
         completion = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=mensajes_para_ia,
-            max_tokens=150
+            max_tokens=400
         )
         
-        clara_text = completion.choices.message.content
+        # FIJADO CON: Ahora lee correctamente el primer elemento de las opciones devueltas por Groq
+        clara_text = completion.choices[0].message.content
+        print(f"🤖 Clara responde: {clara_text}")
+
         historial.append({"role": "user", "content": texto_giuliano})
         historial.append({"role": "assistant", "content": clara_text})
         guardar_json(HISTORIAL_FILE, historial)
 
     except Exception as e:
         clara_text = f"Ay, Giuliano, me pegué un susto con el servidor: {str(e)}"
-        print(f"❌ {clara_text}")
+        print(f"❌ Error en ejecución: {clara_text}")
 
     try:
         if os.path.exists(temp_audio_path):
@@ -105,7 +131,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara activa y blindada con la hora de Mendoza"}
+    return {"estado": "Clara activa, parche de choices[0] aplicado con éxito"}
 
 if __name__ == "__main__":
     import uvicorn
