@@ -106,7 +106,7 @@ async def clara_talk(file: UploadFile = File(...)):
         contexto_externo = ""
         if any(w in texto_limpio for w in ["clima", "tiempo", "temperatura", "grado"]):
             contexto_externo = f"CLIMA ACTUAL SOLICITADO: {consultar_clima_universal(texto_limpio)}"
-        elif any(w in texto_limpio for w in ["busca", "investiga", "quién", "qué", "cómo", "dónde", "por qué", "internet", "google", "fallece", "noticia", "último", "ahora", "estamos", "ajá"]):
+        elif any(w in texto_limpio for w in ["busca", "investiga", "quién", "qué", "cómo", "dónde", "por qué", "internet", "google", "fallece", "noticia", "último", "ahora", "estamos", "ajá", "miro"]):
             contexto_externo = f"INFORMACIÓN ENCONTRADA EN INTERNET: {buscar_en_web_universal(texto_giuliano)}"
 
         alerta_codigo = "MODO HACKER: Alerta de bugs o consola." if any(w in texto_limpio for w in ["error", "bug", "commit", "crash", "falla", "rompió"]) else ""
@@ -130,8 +130,8 @@ async def clara_talk(file: UploadFile = File(...)):
             max_tokens=400
         )
         
-        # CORREGIDO CON EL [0]
-        clara_text = completion.choices.message.content
+        # LECTURA CORREGIDA USANDO EL ÍNDICE 0
+        clara_text = completion.choices[0].message.content
         print(f"🤖 Clara responde: {clara_text}")
 
         if "juanchi" in texto_limpio:
