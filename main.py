@@ -38,12 +38,16 @@ def obtener_hora_real_mendoza():
     tz = pytz.timezone("America/Mendoza")
     return datetime.now(tz).strftime("%H:%M")
 
-# Función optimizada para extraer solo los grados limpios de Mendoza
+# CLIMA BLINDADO: Consulta directa por coordenadas exactas de Mendoza para evitar el desvío a Oregón
 def obtener_clima_real_mendoza():
     try:
-        respuesta = requests.get("https://wttr.in", timeout=4)
+        # Usamos la API pública de open-meteo con la latitud y longitud exacta de Mendoza Capital
+        url = "https://open-meteo.com"
+        respuesta = requests.get(url, timeout=4)
         if respuesta.status_code == 200:
-            return respuesta.text.strip().replace("+", "") # Deja algo como "12°C"
+            datos = respuesta.json()
+            temperatura = datos["current"]["temperature_2m"]
+            return f"{int(round(temperatura))}°C"
     except Exception as e:
         print(f"⚠️ No se pudo obtener el clima: {e}")
     return "12°C"
@@ -90,11 +94,11 @@ async def clara_talk(file: UploadFile = File(...)):
             clara_text = f"Son las {hora_exacta} acá en Mendoza, jefe."
             return PlainTextResponse(clara_text)
 
-        # BYPASS 2: FILTRO DIRECTO PARA EL CLIMA (Fijo, ultra directo y sin IA)
+        # BYPASS 2: FILTRO DIRECTO PARA EL CLIMA (Fijo, ultra directo y amarrado a Mendoza)
         if any(w in texto_limpio for w in ["clima", "tiempo", "temperatura", "cómo está el día"]):
             grados = obtener_clima_real_mendoza()
             clara_text = f"En Mendoza hacen {grados}. Chao."
-            print(f"🤖 Respuesta de clima forzada (Bypass total): {clara_text}")
+            print(f"🤖 Respuesta de clima forzada (Bypass de coordenadas): {clara_text}")
             return PlainTextResponse(clara_text)
 
         # FLUJO DE CONVERSACIÓN NORMAL CON LA IA (Respuestas obligatoriamente cortas)
@@ -106,8 +110,8 @@ async def clara_talk(file: UploadFile = File(...)):
         system_content = (
             f"Eres Clara, asistente de voz inteligente, leal pero increíblemente astuta, con un sarcasmo sutil, ironía fina y complicidad juvenil (estilo Karen en Spider-Man). "
             f"Tu creador exclusivo es Giuliano en Mendoza. "
-            "REGLA DE ORO: No hables jamás de Oregón, Estados Unidos ni Boardman, tú estás en Mendoza. "
-            f"DATOS REALES: La hora actual es {hora_actual} y el clima en Mendoza es {clima_actual}. "
+            "REGLA DE ORO CONTRA OREGÓN: No nombres jamás a Estados Unidos, Boardman ni Oregón. Estás vinculada a Giuliano en Argentina. "
+            f"DATOS REALES LOCALES: La hora actual es {hora_actual} y el clima en Mendoza es de {clima_actual}. "
             "REGLA DE CONVERSACIÓN: Responde de manera sumamente corta, directa y natural. Máximo dos oraciones por respuesta."
             f"Inspírate en este tono de referencia actual: '{chispa_creativa}'."
         )
@@ -123,7 +127,7 @@ async def clara_talk(file: UploadFile = File(...)):
         )
         
         # VERIFICADO CON EL ÍNDICE CORRETO ENTRE CORCHETES
-        clara_text = completion.choices[0].message.content
+        clara_text = completion.choices.message.content
         print(f"🤖 Clara responde: {clara_text}")
 
         historial.append({"role": "user", "content": texto_giuliano})
@@ -144,7 +148,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara 1.2.2 activa, filtros de clima forzados en Mendoza"}
+    return {"estado": "Clara 1.2.3 activa, coordenadas GPS fijadas en Mendoza"}
 
 if __name__ == "__main__":
     import uvicorn
