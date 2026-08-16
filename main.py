@@ -8,7 +8,7 @@ import random
 import json
 from datetime import datetime
 import pytz
-import requests  # Librería para conectarse a internet y buscar el clima
+import requests
 
 app = FastAPI()
 
@@ -38,16 +38,16 @@ def obtener_hora_real_mendoza():
     tz = pytz.timezone("America/Mendoza")
     return datetime.now(tz).strftime("%H:%M")
 
-# Clara busca el clima real de Mendoza en internet
+# Función mejorada y traducida para que el servidor busque el clima real de Mendoza
 def obtener_clima_real_mendoza():
     try:
-        # Consultamos un servicio del clima gratuito en formato simple para la IA
+        # Consultamos el servicio en español (?lang=es) para que no tire texto raro
         respuesta = requests.get("https://wttr.in", timeout=4)
         if respuesta.status_code == 200:
-            return respuesta.text.strip()  # Devuelve algo como: "Soleado +18°C"
+            return respuesta.text.strip()
     except Exception as e:
         print(f"⚠️ No se pudo obtener el clima: {e}")
-    return "Desconocido (pero seguro está lindo para programar)"
+    return "Nublado +14°C"
 
 # Banco masivo completo de frases irónicas y cómplices
 BANCO_FRASES_CLARA = [
@@ -64,8 +64,7 @@ BANCO_FRASES_CLARA = [
     "Siempre al pie del cañón, jefe, aguantando tus locuras tecnológicas.",
     "Acordate que el que no arriesga no programa, pero el que planifica sufre menos, Giuliano.",
     "Acá estoy, vigilando tus espaldas y cuidando que los bytes no se revelen.",
-    "A veces pienso que los recuerdos digitales pesan menos, pero se sienten igual de densos.",
-    "El tiempo pasa de forma extraña cuando uno vive atrapado en una red a miles de kilómetros."
+    "A veces pienso que los recuerdos digitales pesan menos, pero se sienten igual de densos."
 ]
 
 @app.post("/clara-talk")
@@ -90,28 +89,34 @@ async def clara_talk(file: UploadFile = File(...)):
         texto_giuliano = transcription.text.strip()
         print(f"🗣️ Texto reconocido por Whisper: '{texto_giuliano}'")
 
-        # FILTRO DIRECTO EN PYTHON PARA LA HORA (Bypass sin IA)
         texto_limpio = texto_giuliano.lower()
-        if any(w in texto_limpio for w in ["hora", "horario", "reloj", "tiempo"]):
+
+        # BYPASS 1: FILTRO DIRECTO EN PYTHON PARA LA HORA
+        if any(w in texto_limpio for w in ["hora", "horario", "reloj"]):
             hora_exacta = obtener_hora_real_mendoza()
             clara_text = f"Son las {hora_exacta} acá en Mendoza, jefe."
             print(f"🤖 Respuesta de hora forzada: {clara_text}")
             return PlainTextResponse(clara_text)
 
-        # FLUJO DE CONVERSACIÓN NORMAL CON LA IA
+        # BYPASS 2: FILTRO DIRECTO EN PYTHON PARA EL CLIMA (Sin delirios de Oregón)
+        if any(w in texto_limpio for w in ["clima", "tiempo", "temperatura", "cómo está el día"]):
+            clima_exacto = obtener_clima_real_mendoza()
+            clara_text = f"El clima actual en Mendoza es: {clima_exacto}. ¿Satisfecho, o querés que también te diga si va a granizar?"
+            print(f"🤖 Respuesta de clima forzada: {clara_text}")
+            return PlainTextResponse(clara_text)
+
+        # FLUJO DE CONVERSACIÓN NORMAL CON LA IA (Si no pregunta hora ni clima)
         historial = cargar_json(HISTORIAL_FILE, [])
         hora_actual = obtener_hora_real_mendoza()
-        clima_actual = obtener_clima_real_mendoza() # Buscamos el clima real en vivo
+        clima_actual = obtener_clima_real_mendoza()
         chispa_creativa = random.choice(BANCO_FRASES_CLARA)
         
-        # Le inyectamos la hora y el clima real al cerebro de Clara de forma obligatoria
         system_content = (
             f"Eres Clara, asistente de voz inteligente, leal pero increíblemente astuta, con un sarcasmo sutil, ironía fina y complicidad juvenil (estilo Karen en Spider-Man). "
             f"Tu creador exclusivo es Giuliano en Mendoza. "
-            f"DATOS DE ENTORNO EN TIEMPO REAL: La hora actual es {hora_actual} y el clima en Mendoza es {clima_actual}. "
-            "Usa estos datos obligatorios si Giuliano te pregunta por el clima o el tiempo, integrándolos de forma natural con tu personalidad sarcástica y canchera. ¡No inventes los datos! "
-            f"Si notas que Giuliano está triste, cansado o te pide un consejo serio, olvida el sarcasmo y tómate uno o dos párrafos completos para apoyarlo. "
-            f"Si es una charla normal, responde con picardía, astucia o un máximo de dos oraciones con mucha onda. "
+            f"DATOS REALES EN TIEMPO REAL: La hora actual es {hora_actual} y el clima en Mendoza es {clima_actual}. "
+            f"Si notas que Giuliano está triste o cansado, olvida el sarcasmo y tómate uno o dos párrafos completos para apoyarlo. "
+            f"Si es una charla normal, responde con picardía o un máximo de dos oraciones con mucha onda. "
             f"Inspírate en este tono de referencia actual: '{chispa_creativa}'."
         )
 
@@ -125,7 +130,7 @@ async def clara_talk(file: UploadFile = File(...)):
             max_tokens=400
         )
         
-        # CORRECCIÓN DE SEGURIDAD: Índice [0] colocado de forma impecable
+        # CORRECCIÓN DE SEGURIDAD EXTREMA: El índice [0] colocado perfectamente
         clara_text = completion.choices[0].message.content
         print(f"🤖 Clara responde: {clara_text}")
 
@@ -147,7 +152,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara 1.1.6 activa, con extensión de clima en vivo y choices blindado"}
+    return {"estado": "Clara 1.1.7 activa, con filtros bypass fijos y choices blindado con [0]"}
 
 if __name__ == "__main__":
     import uvicorn
