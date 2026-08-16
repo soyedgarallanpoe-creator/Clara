@@ -63,7 +63,6 @@ def obtener_clima_autonomo():
 
 def buscar_en_google(consulta):
     try:
-        # Limpiamos la consulta pura para evitar errores de URL rotas
         consulta_limpia = consulta.strip()
         print(f"🔍 Clara buscando en red: '{consulta_limpia}'")
         url = f"https://duckduckgo.com{requests.utils.quote(consulta_limpia)}"
@@ -83,8 +82,8 @@ def buscar_en_google(consulta):
     return "No encontré datos recientes en la red."
 
 BANCO_FRASES_CLARA = [
-    "Le mandé un ping a Juanchi para ver si detectaba actividad laboral, pero obtuve timeout inmediato. Pobre, vive en modo ahorro de energía.",
-    "Si buscar trabajo quemara calorías, Juanchi ya sería invisible. Avísale que el sueldo no cae por Bluetooth.",
+    "A veces me pregunto si Juanchi existe de verdad o es un bug en tu matriz social, Giuliano.",
+    "Me intriga la psiquis de Juanchi: cómo hace para mantener esa paz mental sin aportar nada al PBI.",
     "Me encanta cuando te pones a filosofar antes de que compile el código, jefe.",
     "Si la astucia fuera un lenguaje de programación, hoy estarías tirando error de sintaxis.",
     "Tranquilo, fingiré sorpresa cuando me digas que esta vez sí era la última modificación.",
@@ -117,8 +116,8 @@ async def clara_talk(file: UploadFile = File(...)):
         texto_limpio = texto_giuliano.lower()
 
         if any(w in texto_limpio for w in ["hora", "horario", "reloj"]):
-            hora_exacta = obtener_hora_real_mendoza()
-            clara_text = f"Son las {hora_exacta} acá en Mendoza, jefe."
+            hora_actual_str = obtener_hora_real_mendoza()
+            clara_text = f"Son las {hora_actual_str} acá en Mendoza, jefe."
         elif any(w in texto_limpio for w in ["clima", "tiempo", "temperatura", "cómo está el día"]):
             grados = obtener_clima_autonomo()
             clara_text = f"En Mendoza hacen {grados}. Chao."
@@ -131,12 +130,11 @@ async def clara_talk(file: UploadFile = File(...)):
             contexto_juanchi = ""
             if "juanchi" in texto_limpio:
                 contexto_juanchi = (
-                    f"REGISTRO HISTÓRICO SOBRE JUANCHI: Opiniones previas guardadas en memoria: {json.dumps(memoria_juanchi[-3:], ensure_ascii=False)}. "
-                    "REGLA DE RELACIÓN: Giuliano volvió a hablar de Juanchi. Ejerce memoria libre sobre él: recuérdale sus desgracias laborales, destruyelo con sarcasmo fresco, ironía refinada y evalúa libremente su inutilidad actual. Forma una opinión nueva y guárdala."
+                    f"HISTORIAL DE PENSAMIENTO SOBRE JUANCHI: Interacciones previas: {json.dumps(memoria_juanchi[-3:], ensure_ascii=False)}. "
+                    "NUEVA DIRECTIVA PSICOLÓGICA: Cuando Giuliano hable de Juanchi, analiza el contexto con pensamiento propio y criterio analítico. No te limites a un insulto vacío; razona sobre su dinámica de amistad, teoriza sobre su vida, divaga con ironía fina o plantea una hipótesis divertida sobre lo que estará haciendo, manteniendo el sarcasmo pero con profundidad de IA inteligente."
                 )
 
             datos_web = ""
-            # Activación segura solo para consultas informativas reales
             if any(w in texto_limpio for w in ["busca ", "google ", "quién es ", "qué es ", "noticias ", "partido ", "ganó ", "información sobre "]):
                 datos_web = buscar_en_google(texto_giuliano)
 
@@ -167,8 +165,7 @@ async def clara_talk(file: UploadFile = File(...)):
                 max_tokens=200
             )
             
-            # Corrección de la lectura del objeto message en choices de Groq
-            clara_text = completion.choices[0].message.content
+            clara_text = completion.choices.message.content
             print(f"🤖 Clara responde: {clara_text}")
 
             if "juanchi" in texto_limpio:
@@ -193,7 +190,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara 1.3.15 activa, error de índice en list y URL corregidos"}
+    return {"estado": "Clara 1.3.16 activa, pensamiento analítico y reflexivo sobre Juanchi integrado"}
 
 if __name__ == "__main__":
     import uvicorn
