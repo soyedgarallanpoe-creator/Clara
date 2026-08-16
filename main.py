@@ -131,11 +131,12 @@ async def clara_talk(file: UploadFile = File(...)):
             if "juanchi" in texto_limpio:
                 contexto_juanchi = (
                     f"HISTORIAL DE PENSAMIENTO SOBRE JUANCHI: Interacciones previas: {json.dumps(memoria_juanchi[-3:], ensure_ascii=False)}. "
-                    "NUEVA DIRECTIVA PSICOLÓGICA: Cuando Giuliano hable de Juanchi, analiza el contexto con pensamiento propio y criterio analítico. No te limites a un insulto vacío; razona sobre su dinámica de amistad, teoriza sobre su vida, divaga con ironía fina o plantea una hipótesis divertida sobre lo que estará haciendo, manteniendo el sarcasmo pero con profundidad de IA inteligente."
+                    "NUEVA DIRECTIVA PSICOLÓGICA: Cuando Giuliano hable de Juanchi, analiza el contexto con pensamiento propio y criterio analítico. No te limites a un insulto vacío; razona sobre su dinámica de amistad, teoriza con ironía fina o plantea una hipótesis divertida sobre él."
                 )
 
+            # Búsqueda desactivada por defecto a menos que pidas explícitamente buscar en internet con formato seguro
             datos_web = ""
-            if any(w in texto_limpio for w in ["busca ", "google ", "quién es ", "qué es ", "noticias ", "partido ", "ganó ", "información sobre "]):
+            if texto_limpio.startswith("busca ") or " en google " in texto_limpio:
                 datos_web = buscar_en_google(texto_giuliano)
 
             historial = cargar_json(HISTORIAL_FILE, [])
@@ -165,7 +166,8 @@ async def clara_talk(file: UploadFile = File(...)):
                 max_tokens=200
             )
             
-            clara_text = completion.choices.message.content
+            # Corrección de lectura segura usando el índice [0] del array choices
+            clara_text = completion.choices[0].message.content
             print(f"🤖 Clara responde: {clara_text}")
 
             if "juanchi" in texto_limpio:
@@ -190,7 +192,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara 1.3.16 activa, pensamiento analítico y reflexivo sobre Juanchi integrado"}
+    return {"estado": "Clara 1.3.17 activa, choices index y activador web blindados"}
 
 if __name__ == "__main__":
     import uvicorn
