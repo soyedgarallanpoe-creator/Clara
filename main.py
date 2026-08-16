@@ -13,10 +13,8 @@ from bs4 import BeautifulSoup
 
 app = FastAPI()
 
-# Inicialización del cliente de Groq
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
-# Conexión a la nube de Upstash Redis
 redis = Redis(
     url=os.environ.get("UPSTASH_REDIS_REST_URL"),
     token=os.environ.get("UPSTASH_REDIS_REST_TOKEN")
@@ -26,7 +24,6 @@ REDIS_KEY_HISTORIAL = "clara_chat_historial"
 
 def cargar_historial_nube():
     try:
-        # Recupera los últimos 40 mensajes de la base de datos
         data = redis.lrange(REDIS_KEY_HISTORIAL, 0, 39)
         if data:
             return [json.loads(item) for item in reversed(data)]
@@ -37,9 +34,7 @@ def cargar_historial_nube():
 def guardar_en_nube(role, content):
     try:
         mensaje = json.dumps({"role": role, "content": content}, ensure_ascii=False)
-        # Agrega el nuevo mensaje al inicio de la lista en la nube
         redis.lpush(REDIS_KEY_HISTORIAL, mensaje)
-        # Mantiene la lista limpia acotada a los últimos 50 mensajes
         redis.ltrim(REDIS_KEY_HISTORIAL, 0, 49)
     except Exception as e:
         print(f"⚠️ Error guardando memoria en Upstash: {e}")
@@ -99,7 +94,6 @@ async def clara_talk(file: UploadFile = File(...)):
         if any(w in texto_limpio for w in ["busca", "investiga", "quién", "qué", "cómo", "dónde", "por qué", "noticia"]):
             contexto_externo = f"INFO DE INTERNET: {buscar_en_web_universal(texto_giuliano)}"
 
-        # Descarga la memoria persistente a largo plazo desde la nube
         historial_nube = cargar_historial_nube()
         
         system_content = (
@@ -120,11 +114,9 @@ async def clara_talk(file: UploadFile = File(...)):
             max_tokens=400
         )
         
-        # Lectura de la respuesta utilizando el índice numérico correcto sin fallas
         clara_text = completion.choices[0].message.content
         print(f"🤖 Clara responde: {clara_text}")
 
-        # Registra el nuevo intercambio en tu base de datos de Upstash
         guardar_en_nube("user", texto_giuliano)
         guardar_en_nube("assistant", clara_text)
 
