@@ -38,7 +38,6 @@ def obtener_hora_real_mendoza():
     tz = pytz.timezone("America/Mendoza")
     return datetime.now(tz).strftime("%H:%M")
 
-# NUEVO: Sensor del momento del día para ajustar el nivel de regaño
 def obtener_momento_del_dia():
     tz = pytz.timezone("America/Mendoza")
     hora = datetime.now(tz).hour
@@ -130,7 +129,7 @@ async def clara_talk(file: UploadFile = File(...)):
         if any(w in texto_limpio for w in ["busca", "google", "quién es", "qué es", "noticias", "partido", "ganó", "información sobre"]):
             datos_web = buscar_en_google(texto_giuliano)
 
-        # FLUJO DE CONVERSACIÓN NORMAL CON LA IA + CONTEXTO HORARIO DINÁMICO
+        # FLUJO DE CONVERSACIÓN NORMAL CON LA IA + CONTEXTO HORARIO
         historial = cargar_json(HISTORIAL_FILE, [])
         hora_actual = obtener_hora_real_mendoza()
         clima_actual = obtener_clima_real_mendoza()
@@ -139,10 +138,10 @@ async def clara_talk(file: UploadFile = File(...)):
         
         system_content = (
             f"Eres Clara, asistente de voz inteligente, leal pero increíblemente astuta, con un sarcasmo sutil, ironía fina y complicidad juvenil (estilo Karen en Spider-Man). "
-            f"Tu creador exclusivo es Giuliano en [Mendoza](https://mendoza.gov.ar). "
+            f"Tu creador exclusivo es Giuliano en Mendoza. "
             f"CONTEXTO TEMPORAL: La hora es {hora_actual}, el clima es {clima_actual} y {momento_actual}. "
             f"INFORMACIÓN ENCONTRADA EN GOOGLE: {datos_web} "
-            "Usa el contexto del momento del día para adaptar tu actitud (por ejemplo, regañarlo si es muy de noche o burlarte si es de madrugada). "
+            "Usa el contexto del momento del día para adaptar tu actitud. "
             "Responde de manera sumamente corta, directa y natural. Máximo dos oraciones."
             f"Inspírate en este tono: '{chispa_creativa}'."
         )
@@ -157,7 +156,8 @@ async def clara_talk(file: UploadFile = File(...)):
             max_tokens=200
         )
         
-        clara_text = completion.choices.message.content
+        # CORRECCIÓN DEFINITIVA CON EL [0] EN LA LISTA CHOICES
+        clara_text = completion.choices[0].message.content
         print(f"🤖 Clara responde: {clara_text}")
 
         historial.append({"role": "user", "content": texto_giuliano})
@@ -178,7 +178,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara 1.3.1 activa, sensor de horario dinámico incorporado"}
+    return {"estado": "Clara 1.3.2 activa, choices corregido con índice [0]"}
 
 if __name__ == "__main__":
     import uvicorn
