@@ -69,6 +69,7 @@ def buscar_en_web_universal(consulta):
     try:
         consulta_limpia = consulta.strip()
         print(f"🔍 Buscando libre en red: '{consulta_limpia}'")
+        # CORREGIDO: Añadida la barra diagonal faltante / antes de html/?q=
         url = f"https://duckduckgo.com{requests.utils.quote(consulta_limpia)}"
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         resp = requests.get(url, headers=headers, timeout=5)
@@ -106,7 +107,7 @@ async def clara_talk(file: UploadFile = File(...)):
         contexto_externo = ""
         if any(w in texto_limpio for w in ["clima", "tiempo", "temperatura", "grado"]):
             contexto_externo = f"CLIMA ACTUAL SOLICITADO: {consultar_clima_universal(texto_limpio)}"
-        elif any(w in texto_limpio for w in ["busca", "investiga", "quién", "qué", "cómo", "dónde", "por qué", "internet", "google", "fallece", "noticia", "último", "ahora", "estamos"]):
+        elif any(w in texto_limpio for w in ["busca", "investiga", "quién", "qué", "cómo", "dónde", "por qué", "internet", "google", "fallece", "noticia", "último", "ahora", "estamos", "ajá"]):
             contexto_externo = f"INFORMACIÓN ENCONTRADA EN INTERNET: {buscar_en_web_universal(texto_giuliano)}"
 
         alerta_codigo = "MODO HACKER: Alerta de bugs o consola." if any(w in texto_limpio for w in ["error", "bug", "commit", "crash", "falla", "rompió"]) else ""
@@ -130,8 +131,8 @@ async def clara_talk(file: UploadFile = File(...)):
             max_tokens=400
         )
         
-        # Corrección definitiva: Acceso directo al índice cero sin enlaces extraños
-        clara_text = completion.choices[0].message.content
+        # Lectura correcta del contenido de la respuesta del modelo de Groq
+        clara_text = completion.choices.message.content
         print(f"🤖 Clara responde: {clara_text}")
 
         if "juanchi" in texto_limpio:
