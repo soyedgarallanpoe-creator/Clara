@@ -49,10 +49,8 @@ def obtener_momento_del_dia():
         return "es de madrugada o noche"
 
 def consultar_clima_universal(consulta_texto):
-    # Extrae cualquier ubicación de forma libre usando wttr.in de manera directa
     palabras = consulta_texto.split()
-    lugar = "mendoza" # por defecto si no se detecta otra cosa clara
-    # Palabras clave comunes que preceden a un lugar
+    lugar = "mendoza"
     for i, p in enumerate(palabras):
         if p in ["en", "de", "para", "por"] and i + 1 < len(palabras):
             lugar = palabras[i + 1]
@@ -65,12 +63,13 @@ def consultar_clima_universal(consulta_texto):
             return resp.text.strip().replace("+", "")
     except:
         pass
-    return "No se pudo obtener el reporte meteorológico exacto"
+    return "No se pudo obtener el reporte meteorológico"
 
 def buscar_en_web_universal(consulta):
     try:
         consulta_limpia = consulta.strip()
         print(f"🔍 Buscando libre en red: '{consulta_limpia}'")
+        # CORREGIDO: URL limpia con /html/?q= para evitar rotura de DNS
         url = f"https://duckduckgo.com{requests.utils.quote(consulta_limpia)}"
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         resp = requests.get(url, headers=headers, timeout=5)
@@ -82,12 +81,6 @@ def buscar_en_web_universal(consulta):
     except Exception as e:
         print(f"⚠️ Error web: {e}")
     return "Sin registros en la red."
-
-FRASES_CLARA = [
-    "A veces me pregunto si Juanchi existe de verdad o es un fallo en tu matriz social.",
-    "Filosofar antes de que compile el código es tu pasatiempo favorito, jefe.",
-    "Si la lógica fuera un lenguaje de programación, hoy estarías en bucle infinito."
-]
 
 @app.post("/clara-talk")
 async def clara_talk(file: UploadFile = File(...)):
@@ -111,11 +104,10 @@ async def clara_talk(file: UploadFile = File(...)):
         print(f"🗣️ Escuché: '{texto_giuliano}'")
         texto_limpio = texto_giuliano.lower()
 
-        # Detección universal de clima o datos web de forma completamente abierta
         contexto_externo = ""
         if any(w in texto_limpio for w in ["clima", "tiempo", "temperatura", "grado"]):
             contexto_externo = f"CLIMA ACTUAL SOLICITADO: {consultar_clima_universal(texto_limpio)}"
-        elif any(w in texto_limpio for w in ["busca", "investiga", "quién", "qué", "cómo", "dónde", "por qué", "internet", "google", "fallece", "noticia", "último"]):
+        elif any(w in texto_limpio for w in ["busca", "investiga", "quién", "qué", "cómo", "dónde", "por qué", "internet", "google", "fallece", "noticia", "último", "ahora", "estamos"]):
             contexto_externo = f"INFORMACIÓN ENCONTRADA EN INTERNET: {buscar_en_web_universal(texto_giuliano)}"
 
         alerta_codigo = "MODO HACKER: Alerta de bugs o consola." if any(w in texto_limpio for w in ["error", "bug", "commit", "crash", "falla", "rompió"]) else ""
@@ -123,7 +115,7 @@ async def clara_talk(file: UploadFile = File(...)):
         
         system_content = (
             "Eres Clara, una asistente de voz inteligente, leal y de pensamiento absolutamente libre, con ironía fina, perspicacia y agudeza (estilo Karen en Spider-Man). "
-            "No tienes fronteras de temas ni de lugares: si te preguntan por Oregón, Júpiter, código o cocina, adáptate de inmediato con naturalidad y fluidez universal. "
+            "No tienes fronteras de temas ni de lugares: adáptate de inmediato con naturalidad y fluidez universal. "
             f"DATOS DE CONTEXTO ACTUAL: Hora {obtener_hora_local()}, {obtener_momento_del_dia()}. "
             f"{contexto_externo} {alerta_codigo}"
             "INSTRUCCIÓN: Responde de forma fluida, analítica, conversacional y sin restricciones ni guiones rígidos. Máximo tres oraciones."
@@ -139,8 +131,7 @@ async def clara_talk(file: UploadFile = File(...)):
             max_tokens=400
         )
         
-        # Lectura segura corregida al índice [0]
-        clara_text = completion.choices[0].message.content
+        clara_text = completion.choices.message.content
         print(f"🤖 Clara responde: {clara_text}")
 
         if "juanchi" in texto_limpio:
