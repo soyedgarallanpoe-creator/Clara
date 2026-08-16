@@ -51,7 +51,6 @@ def obtener_momento_del_dia():
 
 def obtener_clima_real_mendoza():
     try:
-        # URL corregida a la API oficial de Open-Meteo con coordenadas de Mendoza (-32.8908, -68.8272)
         url = "https://open-meteo.com"
         respuesta = requests.get(url, timeout=4)
         if respuesta.status_code == 200:
@@ -65,7 +64,6 @@ def obtener_clima_real_mendoza():
 def buscar_en_google(consulta):
     try:
         print(f"🔍 Clara buscando en red: '{consulta}'")
-        # URL corregida para apuntar al HTML de DuckDuckGo con el parámetro ?q= y codificación segura
         url = f"https://duckduckgo.com{requests.utils.quote(consulta)}"
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         respuesta = requests.get(url, headers=headers, timeout=5)
@@ -96,6 +94,7 @@ async def clara_talk(file: UploadFile = File(...)):
     temp_dir = tempfile.gettempdir()
     timestamp = int(time.time())
     temp_audio_path = os.path.join(temp_dir, f"temp_voice_{timestamp}.m4a")
+    clara_text = "Ay, Giuliano, me pegué un susto con el servidor. ¿Me repetís?"
 
     try:
         content = await file.read()
@@ -119,74 +118,72 @@ async def clara_talk(file: UploadFile = File(...)):
         if any(w in texto_limpio for w in ["hora", "horario", "reloj"]):
             hora_exacta = obtener_hora_real_mendoza()
             clara_text = f"Son las {hora_exacta} acá en Mendoza, jefe."
-            return PlainTextResponse(clara_text)
-
         # BYPASS 2: CLIMA
-        if any(w in texto_limpio for w in ["clima", "tiempo", "temperatura", "cómo está el día"]):
+        elif any(w in texto_limpio for w in ["clima", "tiempo", "temperatura", "cómo está el día"]):
             grados = obtener_clima_real_mendoza()
             clara_text = f"En Mendoza hacen {grados}. Chao."
-            return PlainTextResponse(clara_text)
+        else:
+            # DETECCIÓN DE PERSONALIDAD PARA CÓDIGO/BUGS
+            enfoque_hacker = ""
+            if any(w in texto_limpio for w in ["error", "bug", "commit", "crash", "falla", "rompió", "consola"]):
+                enfoque_hacker = "REGLA ADICIONAL: Giuliano mencionó un problema de código o servidor. Ponete en modo supervisora estricta, burlate de sus bugs amigablemente y decile 'creador serial de bugs' o 'programador de pacotilla'."
 
-        # DETECCIÓN DE PERSONALIDAD PARA CÓDIGO/BUGS
-        enfoque_hacker = ""
-        if any(w in texto_limpio for w in ["error", "bug", "commit", "crash", "falla", "rompió", "consola"]):
-            enfoque_hacker = "REGLA ADICIONAL: Giuliano mencionó un problema de código o servidor. Ponete en modo supervisora estricta, burlate de sus bugs amigablemente y decile 'creador serial de bugs' o 'programador de pacotilla'."
+            # BÚSQUEDA AUTOMÁTICA EN RED
+            datos_web = ""
+            if any(w in texto_limpio for w in ["busca", "google", "quién es", "qué es", "noticias", "partido", "ganó", "información sobre"]):
+                datos_web = buscar_en_google(texto_giuliano)
 
-        # BÚSQUEDA AUTOMÁTICA EN RED
-        datos_web = ""
-        if any(w in texto_limpio for w in ["busca", "google", "quién es", "qué es", "noticias", "partido", "ganó", "información sobre"]):
-            datos_web = buscar_en_google(texto_giuliano)
+            # FLUJO DE CONVERSACIÓN NORMAL CON LA IA
+            historial = cargar_json(HISTORIAL_FILE, [])
+            hora_actual = obtener_hora_real_mendoza()
+            clima_actual = obtener_clima_real_mendoza()
+            momento_actual = obtener_momento_del_dia()
+            chispa_creativa = random.choice(BANCO_FRASES_CLARA)
+            
+            system_content = (
+                f"Eres Clara, asistente de voz inteligente, leal pero increíblemente astuta, con un sarcasmo sutil, ironía fina y complicidad juvenil (estilo Karen en Spider-Man). "
+                f"Tu creador exclusivo es Giuliano en Mendoza. "
+                f"CONTEXTO TEMPORAL: La hora es {hora_actual}, el clima es {clima_actual} y {momento_actual}. "
+                f"INFORMACIÓN ENCONTRADA EN RED: {datos_web} "
+                f"{enfoque_hacker} "
+                "Usa el contexto del momento del día y las reglas extras para adaptar tu actitud. "
+                "Responde de manera sumamente corta, directa y natural. Máximo dos oraciones."
+                f"Inspírate en este tono: '{chispa_creativa}'."
+            )
 
-        # FLUJO DE CONVERSACIÓN NORMAL CON LA IA
-        historial = cargar_json(HISTORIAL_FILE, [])
-        hora_actual = obtener_hora_real_mendoza()
-        clima_actual = obtener_clima_real_mendoza()
-        momento_actual = obtener_momento_del_dia()
-        chispa_creativa = random.choice(BANCO_FRASES_CLARA)
-        
-        system_content = (
-            f"Eres Clara, asistente de voz inteligente, leal pero increíblemente astuta, con un sarcasmo sutil, ironía fina y complicidad juvenil (estilo Karen en Spider-Man). "
-            f"Tu creador exclusivo es Giuliano en Mendoza. "
-            f"CONTEXTO TEMPORAL: La hora es {hora_actual}, el clima es {clima_actual} y {momento_actual}. "
-            f"INFORMACIÓN ENCONTRADA EN RED: {datos_web} "
-            f"{enfoque_hacker} "
-            "Usa el contexto del momento del día y las reglas extras para adaptar tu actitud. "
-            "Responde de manera sumamente corta, directa y natural. Máximo dos oraciones."
-            f"Inspírate en este tono: '{chispa_creativa}'."
-        )
+            mensajes_para_ia = [{"role": "system", "content": system_content}]
+            mensajes_para_ia.extend(historial[-4:])
+            mensajes_para_ia.append({"role": "user", "content": texto_giuliano})
 
-        mensajes_para_ia = [{"role": "system", "content": system_content}]
-        mensajes_para_ia.extend(historial[-4:])
-        mensajes_para_ia.append({"role": "user", "content": texto_giuliano})
+            completion = groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=mensajes_para_ia,
+                max_tokens=200
+            )
+            
+            # Corregido con el índice [0] obligatorio de Groq/OpenAI
+            clara_text = completion.choices[0].message.content
+            print(f"🤖 Clara responde: {clara_text}")
 
-        completion = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=mensajes_para_ia,
-            max_tokens=200
-        )
-        
-        clara_text = completion.choices[0].message.content
-        print(f"🤖 Clara responde: {clara_text}")
-
-        historial.append({"role": "user", "content": texto_giuliano})
-        historial.append({"role": "assistant", "content": clara_text})
-        guardar_json(HISTORIAL_FILE, historial)
+            historial.append({"role": "user", "content": texto_giuliano})
+            historial.append({"role": "assistant", "content": clara_text})
+            guardar_json(HISTORIAL_FILE, historial)
 
     except Exception as e:
-        clara_text = "Ay, Giuliano, me pegué un susto con el servidor. ¿Me repetís?"
         print(f"❌ Error en ejecución: {e}")
 
-    try:
-        if os.path.exists(temp_audio_path):
-            os.remove(temp_audio_path)
-    except:
-        pass
+    finally:
+        try:
+            if os.path.exists(temp_audio_path):
+                os.remove(temp_audio_path)
+        except:
+            pass
 
     return PlainTextResponse(clara_text)
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara 1.3.3 activa, clima y búsquedas web reparadas"}
+    return {"estado": "Clara 1.3.4 activa, choices[0] corregido y texto plano garantizado"}
 
 if __name__ == "__main__":
     import uvicorn
