@@ -7,13 +7,16 @@ import tempfile
 import json
 from datetime import datetime
 import pytz
-import requests
 
 app = FastAPI()
 
-groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
+# Inicializamos el cliente de Groq especificando un timeout de seguridad
+groq_client = Groq(
+    api_key=os.environ.get("GROQ_API_KEY", ""),
+    timeout=15.0,
+    max_retries=2
+)
 
-# Memoria local persistente en archivo JSON de la instancia
 LOCAL_MEMORIA_FILE = "memoria_clara_local.json"
 
 def cargar_memoria():
@@ -51,14 +54,13 @@ async def clara_talk(file: UploadFile = File(...)):
     temp_dir = tempfile.gettempdir()
     timestamp = int(time.time())
     temp_audio_path = os.path.join(temp_dir, f"temp_voice_{timestamp}.m4a")
-    clara_text = "Disculpa, Giuliano, no pude procesar bien el audio. ¿Me lo repites?"
+    clara_text = "Disculpa, Giuliano, tardó demasiado en responder el servidor de red. ¿Me lo repites?"
 
     try:
         content = await file.read()
         with open(temp_audio_path, "wb") as buffer:
             buffer.write(content)
 
-        # Transcripción mediante Whisper en Groq
         with open(temp_audio_path, "rb") as af:
             transcription = groq_client.audio.transcriptions.create(
                 model="whisper-large-v3-turbo",
@@ -69,7 +71,6 @@ async def clara_talk(file: UploadFile = File(...)):
         texto_limpio = texto_giuliano.lower()
         print(f"🗣️ Texto: '{texto_giuliano}'")
 
-        # Comandos rápidos locales
         if any(w in texto_limpio for w in ["hora", "horario", "reloj"]):
             clara_text = f"Son las {obtener_hora_real_mendoza()} aquí en Mendoza, jefe."
         else:
@@ -78,7 +79,6 @@ async def clara_talk(file: UploadFile = File(...)):
             juanchi_ctx = memoria.get("juanchi_contexto", [])
             notas = memoria.get("notas", {})
 
-            # Guardar nota con comando de voz
             if texto_limpio.startswith("acordate de") or texto_limpio.startswith("guarda ") or "recuerda que" in texto_limpio:
                 clave_nota = f"nota_{int(time.time())}"
                 notas[clave_nota] = texto_giuliano
@@ -100,7 +100,6 @@ async def clara_talk(file: UploadFile = File(...)):
             mensajes.extend(historial[-4:])
             mensajes.append({"role": "user", "content": texto_giuliano})
 
-            # Llamada al modelo Llama 3.3 con el índice 0 correcto en choices
             completion = groq_client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=mensajes,
@@ -120,8 +119,8 @@ async def clara_talk(file: UploadFile = File(...)):
             guardar_memoria(memoria)
 
     except Exception as e:
-        print(f"❌ Error crítico: {e}")
-        clara_text = "Tuve un pequeño problema técnico, Giuliano. Intenta de nuevo."
+        print(f"❌ Error crítico de conexión: {e}")
+        clara_text = "Tengo problemas de enlace con la API en este instante, Giuliano."
     finally:
         try:
             if os.path.exists(temp_audio_path):
@@ -133,7 +132,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara 1.4.4 activa y optimizada"}
+    return {"estado": "Clara 1.4.5 activa con timeout ajustado"}
 
 if __name__ == "__main__":
     import uvicorn
