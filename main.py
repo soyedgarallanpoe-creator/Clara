@@ -61,8 +61,8 @@ def obtener_clima_real_mendoza():
     except Exception as e:
         print(f"⚠️ Clima omitido por protección de red: {e}")
     
-    # Dato real actualizado y seguro en caso de restricción HTTP
-    return "14°C"
+    # Respaldo por defecto actualizado a los 15°C actuales de Mendoza
+    return "15°C"
 
 def buscar_en_google(consulta):
     try:
@@ -129,7 +129,7 @@ async def clara_talk(file: UploadFile = File(...)):
             # DETECCIÓN DE PERSONALIDAD PARA CÓDIGO/BUGS
             enfoque_hacker = ""
             if any(w in texto_limpio for w in ["error", "bug", "commit", "crash", "falla", "rompió", "consola"]):
-                enfoque_hacker = "REGLA ADICIONAL: Giuliano mencionó un problema de código o servidor. Ponete en modo supervisora estricta, burlate de sus bugs amigablemente y decile 'creador serial de bugs' o 'programador de pacotilla'."
+                enfoque_hacker = "REGLA ADICIONAL: Giuliano mencionó un problem de código o servidor. Ponete en modo supervisora estricta, burlate de sus bugs amigablemente y decile 'creador serial de bugs' o 'programador de pacotilla'."
 
             # BÚSQUEDA AUTOMÁTICA EN RED
             datos_web = ""
@@ -185,7 +185,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara 1.3.7 activa, control de HTML en clima blindado"}
+    return {"estado": "Clara 1.3.8 activa, valor fijo de clima calibrado a 15°C"}
 
 if __name__ == "__main__":
     import uvicorn
