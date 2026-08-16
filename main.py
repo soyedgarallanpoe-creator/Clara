@@ -9,10 +9,10 @@ import json
 from datetime import datetime
 import pytz
 import requests
+from bs4 import BeautifulSoup
 
 app = FastAPI()
 
-# Mantenemos tu API Key configurada
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", "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"))
 
 HISTORIAL_FILE = "historial_clara.json"
@@ -38,10 +38,8 @@ def obtener_hora_real_mendoza():
     tz = pytz.timezone("America/Mendoza")
     return datetime.now(tz).strftime("%H:%M")
 
-# CLIMA BLINDADO: Consulta directa por coordenadas exactas de Mendoza para evitar el desvío a Oregón
 def obtener_clima_real_mendoza():
     try:
-        # Usamos la API pública de open-meteo con la latitud y longitud exacta de Mendoza Capital
         url = "https://open-meteo.com"
         respuesta = requests.get(url, timeout=4)
         if respuesta.status_code == 200:
@@ -51,6 +49,26 @@ def obtener_clima_real_mendoza():
     except Exception as e:
         print(f"⚠️ No se pudo obtener el clima: {e}")
     return "12°C"
+
+# NUEVA FUNCIÓN: Búsqueda activa en Google/Internet
+def buscar_en_google(consulta):
+    try:
+        print(f"🔍 Clara buscando en Google: '{consulta}'")
+        url = f"https://duckduckgo.com{consulta}"
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        respuesta = requests.get(url, headers=headers, timeout=5)
+        
+        if respuesta.status_code == 200:
+            soup = BeautifulSoup(respuesta.text, "html.parser")
+            resultados = []
+            for a in soup.find_all("a", class_="result__snippet")[:3]:
+                resultados.append(a.get_text().strip())
+            
+            if resultados:
+                return " ".join(resultados)[:700]
+    except Exception as e:
+        print(f"⚠️ Error en la búsqueda web: {e}")
+    return "No encontré datos recientes en la red."
 
 BANCO_FRASES_CLARA = [
     "Me encanta cuando te pones a filosofar antes de que compile el código, jefe.",
@@ -88,20 +106,24 @@ async def clara_talk(file: UploadFile = File(...)):
 
         texto_limpio = texto_giuliano.lower()
 
-        # BYPASS 1: FILTRO DIRECTO PARA LA HORA (Python responde solo)
+        # BYPASS 1: HORA
         if any(w in texto_limpio for w in ["hora", "horario", "reloj"]):
             hora_exacta = obtener_hora_real_mendoza()
             clara_text = f"Son las {hora_exacta} acá en Mendoza, jefe."
             return PlainTextResponse(clara_text)
 
-        # BYPASS 2: FILTRO DIRECTO PARA EL CLIMA (Fijo, ultra directo y amarrado a Mendoza)
+        # BYPASS 2: CLIMA
         if any(w in texto_limpio for w in ["clima", "tiempo", "temperatura", "cómo está el día"]):
             grados = obtener_clima_real_mendoza()
             clara_text = f"En Mendoza hacen {grados}. Chao."
-            print(f"🤖 Respuesta de clima forzada (Bypass de coordenadas): {clara_text}")
             return PlainTextResponse(clara_text)
 
-        # FLUJO DE CONVERSACIÓN NORMAL CON LA IA (Respuestas obligatoriamente cortas)
+        # BÚSQUEDA AUTOMÁTICA EN GOOGLE SI PIDE INFO EXTERNA
+        datos_web = ""
+        if any(w in texto_limpio for w in ["busca", "google", "quién es", "qué es", "noticias", "partido", "ganó", "información sobre"]):
+            datos_web = buscar_en_google(texto_giuliano)
+
+        # FLUJO DE CONVERSACIÓN NORMAL CON LA IA (Con inyección de Google si aplica)
         historial = cargar_json(HISTORIAL_FILE, [])
         hora_actual = obtener_hora_real_mendoza()
         clima_actual = obtener_clima_real_mendoza()
@@ -110,10 +132,11 @@ async def clara_talk(file: UploadFile = File(...)):
         system_content = (
             f"Eres Clara, asistente de voz inteligente, leal pero increíblemente astuta, con un sarcasmo sutil, ironía fina y complicidad juvenil (estilo Karen en Spider-Man). "
             f"Tu creador exclusivo es Giuliano en Mendoza. "
-            "REGLA DE ORO CONTRA OREGÓN: No nombres jamás a Estados Unidos, Boardman ni Oregón. Estás vinculada a Giuliano en Argentina. "
-            f"DATOS REALES LOCALES: La hora actual es {hora_actual} y el clima en Mendoza es de {clima_actual}. "
-            "REGLA DE CONVERSACIÓN: Responde de manera sumamente corta, directa y natural. Máximo dos oraciones por respuesta."
-            f"Inspírate en este tono de referencia actual: '{chispa_creativa}'."
+            f"DATOS ACTUALES: La hora es {hora_actual} y el clima en Mendoza es {clima_actual}. "
+            f"INFORMACIÓN ENCONTRADA EN GOOGLE: {datos_web} "
+            "Usa la información de Google para responder de manera informada si te pidieron un dato o noticia. "
+            "Responde de manera sumamente corta, directa y natural. Máximo dos oraciones."
+            f"Inspírate en este tono: '{chispa_creativa}'."
         )
 
         mensajes_para_ia = [{"role": "system", "content": system_content}]
@@ -123,11 +146,10 @@ async def clara_talk(file: UploadFile = File(...)):
         completion = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=mensajes_para_ia,
-            max_tokens=150
+            max_tokens=200
         )
         
-        # VERIFICADO CON EL ÍNDICE CORRETO ENTRE CORCHETES
-        clara_text = completion.choices.message.content
+        clara_text = completion.choices[0].message.content
         print(f"🤖 Clara responde: {clara_text}")
 
         historial.append({"role": "user", "content": texto_giuliano})
@@ -148,7 +170,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara 1.2.3 activa, coordenadas GPS fijadas en Mendoza"}
+    return {"estado": "Clara 1.3 activa, con búsqueda en Google integrada"}
 
 if __name__ == "__main__":
     import uvicorn
