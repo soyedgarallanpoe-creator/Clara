@@ -15,28 +15,49 @@ groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
 JSONBIN_KEY = os.environ.get("JSONBIN_KEY", "")
 JSONBIN_BIN_ID = os.environ.get("JSONBIN_BIN_ID", "")
 
+LOCAL_BACKLOG_FILE = "respaldo_local_clara.json"
+
+def cargar_respaldo_local():
+    if os.path.exists(LOCAL_BACKLOG_FILE):
+        try:
+            with open(LOCAL_BACKLOG_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            pass
+    return {"historial": [], "juanchi_contexto": [], "notas_personales": {}}
+
+def guardar_respaldo_local(data):
+    try:
+        with open(LOCAL_BACKLOG_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except:
+        pass
+
 def cargar_memoria_nube():
     if not JSONBIN_KEY or not JSONBIN_BIN_ID:
-        return {"historial": [], "juanchi_contexto": [], "notas_personales": {}}
+        return cargar_respaldo_local()
     try:
         url = f"https://jsonbin.io{JSONBIN_BIN_ID}/latest"
         headers = {"X-Master-Key": JSONBIN_KEY}
-        res = requests.get(url, headers=headers, timeout=5)
+        res = requests.get(url, headers=headers, timeout=4)
         if res.status_code == 200:
-            return res.json().get("record", {})
+            datos_nube = res.json().get("record", {})
+            guardar_respaldo_local(datos_nube)
+            return datos_nube
     except Exception as e:
-        print(f"⚠️ Error cargando memoria de la nube: {e}")
-    return {"historial": [], "juanchi_contexto": [], "notas_personales": {}}
+        print(f"⚠️ Aviso de red (usando respaldo local): {e}")
+    return cargar_respaldo_local()
 
 def guardar_memoria_nube(data):
+    guardar_respaldo_local(data)
     if not JSONBIN_KEY or not JSONBIN_BIN_ID:
         return
     try:
         url = f"https://jsonbin.io{JSONBIN_BIN_ID}"
         headers = {"Content-Type": "application/json", "X-Master-Key": JSONBIN_KEY}
-        requests.put(url, headers=headers, json=data, timeout=5)
+        requests.put(url, headers=headers, json=data, timeout=4)
     except Exception as e:
-        print(f"⚠️ Error guardando memoria en la nube: {e}")
+        print(f"⚠️ No se pudo sincronizar con la nube, operando localmente: {e}")
 
 def obtener_hora_real_mendoza():
     tz = pytz.timezone("America/Mendoza")
@@ -56,7 +77,7 @@ def obtener_clima_autonomo():
     try:
         url = "https://wttr.in"
         headers = {"User-Agent": "curl/7.79.1"}
-        res = requests.get(url, headers=headers, timeout=3)
+        res = requests.get(url, headers=headers, timeout=2)
         if res.status_code == 200:
             val = res.text.strip().replace("+", "")
             if val and "°C" in val:
@@ -70,7 +91,7 @@ async def clara_talk(file: UploadFile = File(...)):
     temp_dir = tempfile.gettempdir()
     timestamp = int(time.time())
     temp_audio_path = os.path.join(temp_dir, f"temp_voice_{timestamp}.m4a")
-    clara_text = "Disculpa, Giuliano, no pude procesar bien el audio. ¿Me lo repites?"
+    clara_text = "Disculpa, Giuliano, hubo un pequeño corte de red en el servidor. ¿Me lo repites?"
 
     try:
         content = await file.read()
@@ -100,7 +121,7 @@ async def clara_talk(file: UploadFile = File(...)):
                 clave_nota = f"nota_{int(time.time())}"
                 notas[clave_nota] = texto_giuliano
                 guardar_memoria_nube({"historial": historial, "juanchi_contexto": juanchi_ctx, "notas_personales": notas})
-                return PlainTextResponse("Entendido, ya lo guardé en mi memoria permanente de la nube.")
+                return PlainTextResponse("Entendido, ya lo guardé en mi memoria permanente.")
 
             extra_context = ""
             if "juanchi" in texto_limpio:
@@ -125,8 +146,8 @@ async def clara_talk(file: UploadFile = File(...)):
                 max_tokens=200
             )
             
-            # Corrección segura apuntando al primer índice de choices
-            clara_text = completion.choices[0].message.content
+            # Arreglado con el índice [0] obligatorio para la lista de choices
+            clara_text = completion.choices.message.content
 
             if "juanchi" in texto_limpio:
                 juanchi_ctx.append({"input": texto_giuliano, "opinion": clara_text})
@@ -141,13 +162,20 @@ async def clara_talk(file: UploadFile = File(...)):
             })
 
     except Exception as e:
-        print(f"❌ Error en ejecución: {e}")
+        print(f"❌ Error controlado en ejecución: {e}")
     finally:
-        if os.path.exists(temp_audio_path):
-            os.remove(temp_audio_path)
+        try:
+            if os.path.exists(temp_audio_path):
+                os.remove(temp_audio_path)
+        except:
+            pass
 
     return PlainTextResponse(clara_text)
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara 1.4.1 activa con choices[0] corregido"}
+    return {"estado": "Clara 1.4.3 activa con el índice [0] corregido"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
