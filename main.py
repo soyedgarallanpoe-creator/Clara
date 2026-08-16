@@ -58,15 +58,15 @@ async def clara_talk(file: UploadFile = File(...)):
         texto_giuliano = transcription.text.strip()
         print(f"🗣️ Texto reconocido por Whisper: '{texto_giuliano}'")
 
-        # FORZADO ABSOLUTO DE HORA EN PYTHON PURO
+        # FILTRO DIRECTO EN PYTHON
         texto_limpio = texto_giuliano.lower()
-        if any(w in texto_limpio for w in ["hora", "horario", "qué hora", "reloj"]):
+        if any(w in texto_limpio for w in ["hora", "horario", "reloj", "tiempo"]):
             hora_exacta = obtener_hora_real_mendoza()
-            clara_text = f"Son las {hora_exacta} acá en Mendoza, jefe. ¿O tu reloj inteligente también se rompió?"
+            clara_text = f"Son las {hora_exacta} acá en Mendoza, jefe."
             print(f"🤖 Respuesta de hora forzada: {clara_text}")
             return PlainTextResponse(clara_text)
 
-        # Si no pide la hora, usa Llama con el prompt base
+        # Si no es la hora, procesa con Llama
         historial = cargar_json(HISTORIAL_FILE, [])
         hora_actual = obtener_hora_real_mendoza()
         
@@ -92,8 +92,7 @@ async def clara_talk(file: UploadFile = File(...)):
         guardar_json(HISTORIAL_FILE, historial)
 
     except Exception as e:
-        # Esto te mostrará el error exacto en los logs si algo falla al transcribir el audio
-        clara_text = f"Error en servidor: {str(e)}"
+        clara_text = f"Ay, Giuliano, me pegué un susto con el servidor: {str(e)}"
         print(f"❌ {clara_text}")
 
     try:
@@ -106,7 +105,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
 @app.get("/")
 def leer_raiz():
-    return {"estado": "Clara 1.1 activa y sincronizada con el tiempo de Mendoza"}
+    return {"estado": "Clara activa y blindada con la hora de Mendoza"}
 
 if __name__ == "__main__":
     import uvicorn
