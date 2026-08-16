@@ -130,8 +130,8 @@ async def clara_talk(file: UploadFile = File(...)):
             max_tokens=400
         )
         
-        # CORREGIDO CON EL ÍNDICE 0 CORRECTAMENTE
-        clara_text = completion.choices.message.content
+        # Corrección definitiva: Acceso directo al índice cero sin enlaces extraños
+        clara_text = completion.choices[0].message.content
         print(f"🤖 Clara responde: {clara_text}")
 
         if "juanchi" in texto_limpio:
