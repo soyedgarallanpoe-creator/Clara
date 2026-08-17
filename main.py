@@ -58,7 +58,6 @@ def obtener_momento_del_dia():
 def buscar_en_web_universal(consulta):
     try:
         consulta_limpia = consulta.strip()
-        # ARREGLADO: Dirección web corregida para evitar fallos de conexión
         url = f"https://duckduckgo.com{requests.utils.quote(consulta_limpia)}"
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
         
@@ -112,9 +111,9 @@ async def clara_talk(file: UploadFile = File(...)):
         mensajes_ia.extend(historial_nube)
         mensajes_ia.append({"role": "user", "content": texto_giuliano})
 
-        # ARREGLADO: Se reemplazó el modelo obsoleto por el nuevo llama-3.3-70b-specdec activo
+        # MODELO ACTUALIZADO: Qwen 3.6 de 27B activo y soportado oficialmente en Groq
         completion = groq_client.chat.completions.create(
-            model="llama-3.3-70b-specdec",
+            model="qwen/qwen3.6-27b",
             messages=mensajes_ia,
             max_tokens=400
         )
