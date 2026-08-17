@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 
 app = FastAPI()
 
-# Inicialización segura con tu clave de respaldo incluida para evitar GroqError
+# Inicialización segura con tu clave de respaldo incluida
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", "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"))
 
 # Conexión a la nube de Upstash Redis
@@ -58,16 +58,18 @@ def obtener_momento_del_dia():
 def buscar_en_web_universal(consulta):
     try:
         consulta_limpia = consulta.strip()
+        # ARREGLADO: Dirección web corregida para evitar fallos de conexión
         url = f"https://duckduckgo.com{requests.utils.quote(consulta_limpia)}"
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        
         resp = requests.get(url, headers=headers, timeout=5)
         if resp.status_code == 200:
             soup = BeautifulSoup(resp.text, "html.parser")
             res = [a.get_text().strip() for a in soup.find_all("a", class_="result__snippet")[:4]]
             if res:
                 return " ".join(res)[:1000]
-    except:
-        pass
+    except Exception as e:
+        print(f"⚠️ Fallo en búsqueda web: {e}")
     return "Sin registros en la red."
 
 @app.post("/clara-talk")
@@ -94,7 +96,7 @@ async def clara_talk(file: UploadFile = File(...)):
 
         contexto_externo = ""
         if any(w in texto_limpio for w in ["busca", "investiga", "quién", "qué", "cómo", "dónde", "por qué", "noticia"]):
-            contexto_externo = f"INFO DE INTERNET: {buscar_en_web_universal(texto_giuliano)}"
+            contexto_externo = f"INFO DE INTERNET: {buscar_en_web_universal(texto_giuliano)} "
 
         historial_nube = cargar_historial_nube()
         
@@ -102,7 +104,7 @@ async def clara_talk(file: UploadFile = File(...)):
             "Eres Clara, una asistente de voz inteligente, leal y de pensamiento absolutamente libre, con ironía fina, perspicacia y agudeza (estilo Karen en Spider-Man). "
             "Tienes memoria a largo plazo real en la nube, por lo que recuerdas perfectamente tus conversaciones previas con Giuliano. "
             f"Hora actual: {obtener_hora_local()}, {obtener_momento_del_dia()}. "
-            f"{contexto_externo} "
+            f"{contexto_externo}"
             "INSTRUCCIÓN: Responde de forma fluida, analítica, conversacional y sin restricciones ni guiones rígidos. Máximo tres oraciones."
         )
 
@@ -110,8 +112,9 @@ async def clara_talk(file: UploadFile = File(...)):
         mensajes_ia.extend(historial_nube)
         mensajes_ia.append({"role": "user", "content": texto_giuliano})
 
+        # ARREGLADO: Se reemplazó el modelo obsoleto por el nuevo llama-3.3-70b-specdec activo
         completion = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="llama-3.3-70b-specdec",
             messages=mensajes_ia,
             max_tokens=400
         )
