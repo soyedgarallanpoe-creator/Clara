@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 app = FastAPI()
 
 # Inicialización segura con tu clave de respaldo incluida para evitar GroqError
-groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", "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"))
+groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", "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"))
 
 # Conexión a la nube de Upstash Redis
 redis = Redis(
